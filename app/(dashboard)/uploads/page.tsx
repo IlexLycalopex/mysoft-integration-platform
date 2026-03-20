@@ -96,7 +96,7 @@ export default async function UploadsPage() {
           <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', marginBottom: 12, marginTop: 0 }}>
             New Upload
           </p>
-          <FileUploader tenantId={effectiveTenantId} mappings={mappings ?? []} />
+          <FileUploader tenantId={effectiveTenantId} mappings={(mappings ?? []).filter(m => m.transaction_type != null) as { id: string; name: string; transaction_type: string }[]} />
         </div>
       ) : canUpload && !effectiveTenantId ? (
         <div style={{ background: '#FFF8E6', border: '1px solid #F5D98C', borderRadius: 8, padding: '14px 18px', marginBottom: 24, fontSize: 13, color: '#92620A' }}>

@@ -132,6 +132,15 @@ export interface ColumnMappingEntryV2 {
 
   /** Internal documentation for this mapping row */
   notes?: string;
+
+  /**
+   * Row-level inheritance tracking — only present when mapping.inheritance_mode = 'inherit'.
+   * 'inherited'  = using platform version exactly; will receive platform updates automatically
+   * 'customized' = tenant has modified this row
+   * 'added'      = tenant-added row not in the platform template
+   * 'conflict'   = platform updated this row but tenant also modified it; resolution required
+   */
+  override_state?: 'inherited' | 'customized' | 'added' | 'conflict';
 }
 
 // ── Pipeline Context ─────────────────────────────────────────────────────────

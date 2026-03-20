@@ -48,6 +48,9 @@ export type TransactionType =
   | 'vendor'
   | 'customer';
 
+export type InheritanceMode = 'standalone' | 'linked' | 'inherit';
+export type SyncStatus = 'up_to_date' | 'update_available' | 'conflict' | 'diverged';
+
 export type MappingTransform = 'none' | 'date_format' | 'decimal' | 'boolean' | 'trim' | 'tr_type';
 
 /** V1 mapping entry — still used in the DB and by the compat shim */
@@ -419,11 +422,18 @@ export interface Database {
           tenant_id: string | null;
           name: string;
           description: string | null;
-          transaction_type: TransactionType;
+          transaction_type: TransactionType | null;
+          object_type_id: string | null;
           is_default: boolean;
           is_template: boolean;
           template_status: 'draft' | 'published';
           column_mappings: ColumnMappingEntry[];
+          template_version: number;
+          parent_template_id: string | null;
+          parent_template_version: number | null;
+          inheritance_mode: InheritanceMode;
+          sync_status: SyncStatus | null;
+          last_synced_at: string | null;
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -433,11 +443,18 @@ export interface Database {
           tenant_id?: string | null;
           name: string;
           description?: string | null;
-          transaction_type: TransactionType;
+          transaction_type?: TransactionType | null;
+          object_type_id?: string | null;
           is_default?: boolean;
           is_template?: boolean;
           template_status?: 'draft' | 'published';
           column_mappings?: ColumnMappingEntry[];
+          template_version?: number;
+          parent_template_id?: string | null;
+          parent_template_version?: number | null;
+          inheritance_mode?: InheritanceMode;
+          sync_status?: SyncStatus | null;
+          last_synced_at?: string | null;
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -447,14 +464,175 @@ export interface Database {
           tenant_id?: string | null;
           name?: string;
           description?: string | null;
-          transaction_type?: TransactionType;
+          transaction_type?: TransactionType | null;
+          object_type_id?: string | null;
           is_default?: boolean;
           is_template?: boolean;
           template_status?: 'draft' | 'published';
           column_mappings?: ColumnMappingEntry[];
+          template_version?: number;
+          parent_template_id?: string | null;
+          parent_template_version?: number | null;
+          inheritance_mode?: InheritanceMode;
+          sync_status?: SyncStatus | null;
+          last_synced_at?: string | null;
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      endpoint_connectors: {
+        Row: {
+          id: string;
+          connector_key: string;
+          display_name: string;
+          description: string | null;
+          logo_url: string | null;
+          is_system: boolean;
+          is_active: boolean;
+          config_schema: Record<string, unknown> | null;
+          capabilities: Record<string, unknown>;
+          sort_order: number;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          connector_key: string;
+          display_name: string;
+          description?: string | null;
+          logo_url?: string | null;
+          is_system?: boolean;
+          is_active?: boolean;
+          config_schema?: Record<string, unknown> | null;
+          capabilities?: Record<string, unknown>;
+          sort_order?: number;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          connector_key?: string;
+          display_name?: string;
+          description?: string | null;
+          logo_url?: string | null;
+          is_system?: boolean;
+          is_active?: boolean;
+          config_schema?: Record<string, unknown> | null;
+          capabilities?: Record<string, unknown>;
+          sort_order?: number;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      endpoint_object_types: {
+        Row: {
+          id: string;
+          connector_id: string;
+          object_key: string;
+          display_name: string;
+          description: string | null;
+          is_system: boolean;
+          is_active: boolean;
+          field_schema: Record<string, unknown> | null;
+          api_object_name: string | null;
+          pipeline_config: Record<string, unknown> | null;
+          sort_order: number;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          connector_id: string;
+          object_key: string;
+          display_name: string;
+          description?: string | null;
+          is_system?: boolean;
+          is_active?: boolean;
+          field_schema?: Record<string, unknown> | null;
+          api_object_name?: string | null;
+          pipeline_config?: Record<string, unknown> | null;
+          sort_order?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          connector_id?: string;
+          object_key?: string;
+          display_name?: string;
+          description?: string | null;
+          is_system?: boolean;
+          is_active?: boolean;
+          field_schema?: Record<string, unknown> | null;
+          api_object_name?: string | null;
+          pipeline_config?: Record<string, unknown> | null;
+          sort_order?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      template_version_history: {
+        Row: {
+          id: string;
+          template_id: string;
+          version: number;
+          column_mappings: unknown[];
+          change_summary: string | null;
+          published_at: string;
+          published_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          template_id: string;
+          version: number;
+          column_mappings: unknown[];
+          change_summary?: string | null;
+          published_at?: string;
+          published_by?: string | null;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      connector_field_cache: {
+        Row: {
+          id: string;
+          connector_key: string;
+          object_type_key: string;
+          tenant_id: string | null;
+          schema_data: unknown[];
+          source: 'api' | 'static' | 'manual';
+          ttl_hours: number;
+          discovered_at: string;
+          discovered_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          connector_key: string;
+          object_type_key: string;
+          tenant_id?: string | null;
+          schema_data: unknown[];
+          source?: 'api' | 'static' | 'manual';
+          ttl_hours?: number;
+          discovered_at?: string;
+          discovered_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          connector_key?: string;
+          object_type_key?: string;
+          tenant_id?: string | null;
+          schema_data?: unknown[];
+          source?: 'api' | 'static' | 'manual';
+          ttl_hours?: number;
+          discovered_at?: string;
+          discovered_by?: string | null;
         };
         Relationships: [];
       };

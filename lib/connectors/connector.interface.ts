@@ -24,10 +24,25 @@ export interface ConnectorCapabilities {
   supportsUpsert: boolean;
   /** Can attach documents to submitted records */
   supportsAttachments: boolean;
-  /** Exposes schema/field discovery */
+  /** Exposes schema/field discovery via API */
   supportsFieldDiscovery: boolean;
+  /** True if field discovery requires tenant credentials (vs platform-level) */
+  fieldDiscoveryRequiresAuth: boolean;
   /** Can check endpoint health before processing */
   supportsHealthCheck: boolean;
+}
+
+// ── Discovered field ───────────────────────────────────────────────────────────
+
+export interface DiscoveredField {
+  key: string;
+  label: string;
+  description?: string;
+  required: boolean;
+  group: string;
+  dataType?: 'string' | 'date' | 'decimal' | 'boolean' | 'integer';
+  maxLength?: number;
+  validValues?: string[];
 }
 
 // ── Build context ─────────────────────────────────────────────────────────────
@@ -113,4 +128,11 @@ export interface Connector {
    * Used by the submit step to decide retry vs. data error vs. DLQ.
    */
   classifyFailure(response: ConnectorResponse): ResponseClassification;
+
+  /**
+   * Discover available fields for a given object type from the endpoint API.
+   * Optional — only implemented when capabilities.supportsFieldDiscovery = true.
+   * When fieldDiscoveryRequiresAuth = true, tenantId is used to fetch credentials.
+   */
+  discoverFields?(objectType: string, tenantId: string): Promise<DiscoveredField[]>;
 }

@@ -16,6 +16,8 @@ interface MappingRow {
   is_default: boolean;
   is_template: boolean;
   column_mappings: unknown[];
+  sync_status: 'up_to_date' | 'update_available' | 'conflict' | 'diverged' | null;
+  inheritance_mode: 'standalone' | 'linked' | 'inherit';
   created_at: string;
   updated_at: string;
 }
@@ -46,7 +48,7 @@ export default async function MappingsPage() {
 
   const tenantQuery = admin
     .from('field_mappings')
-    .select('id, name, description, transaction_type, is_default, is_template, column_mappings, created_at, updated_at')
+    .select('id, name, description, transaction_type, is_default, is_template, column_mappings, sync_status, inheritance_mode, created_at, updated_at')
     .eq('is_template', false)
     .eq('tenant_id', effectiveTenantId)
     .order('transaction_type')
@@ -90,6 +92,9 @@ export default async function MappingsPage() {
     return acc;
   }, {});
 
+  const updatesAvailable = mappings.filter((m) => m.sync_status === 'update_available').length;
+  const conflictsCount   = mappings.filter((m) => m.sync_status === 'conflict').length;
+
   return (
     <div style={{ padding: 24 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
@@ -107,6 +112,23 @@ export default async function MappingsPage() {
           </Link>
         )}
       </div>
+
+      {/* Sync notification strip */}
+      {(updatesAvailable > 0 || conflictsCount > 0) && (
+        <div style={{
+          background: conflictsCount > 0 ? '#FEF3C7' : '#EFF6FF',
+          border: `1px solid ${conflictsCount > 0 ? '#FCD34D' : '#BFDBFE'}`,
+          borderRadius: 8, padding: '12px 16px', marginBottom: 20,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <span style={{ fontSize: 13, color: conflictsCount > 0 ? '#92400E' : '#1E40AF' }}>
+            {conflictsCount > 0
+              ? `⚠ ${conflictsCount} mapping${conflictsCount !== 1 ? 's have' : ' has'} conflicts requiring resolution`
+              : `⚡ ${updatesAvailable} mapping${updatesAvailable !== 1 ? 's have' : ' has'} updates available from platform templates`}
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>Open each mapping to review</span>
+        </div>
+      )}
 
       {/* System Templates */}
       {templates.length > 0 && (
@@ -155,7 +177,7 @@ export default async function MappingsPage() {
                             </td>
                             {canManage && (
                               <td style={{ ...tdStyle, textAlign: 'right' }}>
-                                <CloneMappingButton mappingId={m.id} label="Clone" />
+                                <CloneMappingButton mappingId={m.id} isTemplate label="Clone" />
                               </td>
                             )}
                           </tr>
@@ -205,9 +227,20 @@ export default async function MappingsPage() {
                         {group.map((m) => (
                           <tr key={m.id}>
                             <td style={tdStyle}>
-                              <Link href={`/mappings/${m.id}`} style={{ fontWeight: 500, fontSize: 13, color: 'var(--blue)', textDecoration: 'none' }}>
-                                {m.name}
-                              </Link>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+                                <Link href={`/mappings/${m.id}`} style={{ fontWeight: 500, fontSize: 13, color: 'var(--blue)', textDecoration: 'none' }}>
+                                  {m.name}
+                                </Link>
+                                {m.sync_status === 'update_available' && (
+                                  <span style={{ fontSize: 10, fontWeight: 600, background: '#DBEAFE', color: '#1E40AF', borderRadius: 4, padding: '1px 6px' }}>⚡ Update</span>
+                                )}
+                                {m.sync_status === 'conflict' && (
+                                  <span style={{ fontSize: 10, fontWeight: 600, background: '#FEF3C7', color: '#92400E', borderRadius: 4, padding: '1px 6px' }}>⚠ Conflict</span>
+                                )}
+                                {m.sync_status === 'up_to_date' && m.inheritance_mode !== 'standalone' && (
+                                  <span style={{ fontSize: 10, fontWeight: 600, background: '#E6F7ED', color: '#1A6B30', borderRadius: 4, padding: '1px 6px' }}>✓ Synced</span>
+                                )}
+                              </div>
                               {m.description && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{m.description}</div>}
                             </td>
                             <td style={tdStyle}>

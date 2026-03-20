@@ -18,9 +18,10 @@ export const INTACCT_CAPABILITIES: ConnectorCapabilities = {
     'vendor',
     'customer',
   ],
-  supportsDryRun:         true,
-  supportsUpsert:         false,  // Intacct create-only for most objects
-  supportsAttachments:    false,  // Phase 5 future work
-  supportsFieldDiscovery: false,  // Phase 5 future work
-  supportsHealthCheck:    true,
+  supportsDryRun:              true,
+  supportsUpsert:              false,
+  supportsAttachments:         false,
+  supportsFieldDiscovery:      true,
+  fieldDiscoveryRequiresAuth:  true,  // uses tenant Intacct credentials
+  supportsHealthCheck:         true,
 };
