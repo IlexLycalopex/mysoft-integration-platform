@@ -54,11 +54,11 @@ export async function orchestrateJob(jobId: string): Promise<OrchestrateResult> 
   const events = new EventWriter(admin, jobId);
 
   // Load job
-  const { data: job } = await (admin as ReturnType<typeof createAdminClient>)
+  const { data: job } = await (admin as any)
     .from('upload_jobs')
     .select('*')
     .eq('id', jobId)
-    .single<import('./types').Job>();
+    .single();
 
   if (!job) {
     return { success: false, jobId, status: 'failed', processed: 0, errors: 0, recordNos: [], message: 'Job not found' };
@@ -66,7 +66,7 @@ export async function orchestrateJob(jobId: string): Promise<OrchestrateResult> 
 
   // Approval gate
   if (job.requires_approval && !job.approved_at) {
-    await (admin as ReturnType<typeof createAdminClient>)
+    await (admin as any)
       .from('upload_jobs')
       .update({ status: 'awaiting_approval' })
       .eq('id', jobId);
@@ -88,7 +88,7 @@ export async function orchestrateJob(jobId: string): Promise<OrchestrateResult> 
     .from('field_mappings')
     .select('column_mappings, transaction_type, name')
     .eq('id', job.mapping_id ?? '')
-    .single<{ column_mappings: (ColumnMappingEntry | ColumnMappingEntryV2)[]; transaction_type: string; name: string }>();
+    .single();
 
   if (!mapping && job.mapping_id) {
     await releaseJobFailure(jobId, new Error('Field mapping not found'), job.attempt_count, job.max_attempts);
@@ -100,7 +100,7 @@ export async function orchestrateJob(jobId: string): Promise<OrchestrateResult> 
     .from('tenants')
     .select('region')
     .eq('id', job.tenant_id)
-    .single<{ region: 'uk' | 'us' | 'eu' }>();
+    .single();
   const dateLocale: 'uk' | 'us' = tenant?.region === 'us' ? 'us' : 'uk';
 
   // Resolve effective entity ID (job override → watcher override)
@@ -110,7 +110,7 @@ export async function orchestrateJob(jobId: string): Promise<OrchestrateResult> 
       .from('watcher_configs')
       .select('entity_id_override')
       .eq('id', job.watcher_config_id)
-      .single<{ entity_id_override: string | null }>();
+      .single();
     entityId = watcher?.entity_id_override ?? null;
   }
 
@@ -128,7 +128,7 @@ export async function orchestrateJob(jobId: string): Promise<OrchestrateResult> 
   let currentItems: JobItem[] = [];
 
   // Create job_steps records for the full pipeline upfront
-  await (admin as ReturnType<typeof createAdminClient>)
+  await (admin as any)
     .from('job_steps')
     .upsert(
       pipeline.map((stepType, idx) => ({
@@ -150,19 +150,19 @@ export async function orchestrateJob(jobId: string): Promise<OrchestrateResult> 
     if (!executor) continue;
 
     // Load the step record
-    const { data: stepRecord } = await (admin as ReturnType<typeof createAdminClient>)
+    const { data: stepRecord } = await (admin as any)
       .from('job_steps')
       .select('*')
       .eq('job_id', jobId)
       .eq('sequence', i + 1)
-      .single<import('./types').JobStep>();
+      .single();
 
     if (!stepRecord) continue;
 
     const stepEvents = events.forStep(stepRecord.id);
 
     // Mark step as running
-    await (admin as ReturnType<typeof createAdminClient>)
+    await (admin as any)
       .from('job_steps')
       .update({ status: 'running', started_at: new Date().toISOString(), attempt_count: (stepRecord.attempt_count ?? 0) + 1 })
       .eq('id', stepRecord.id);
@@ -201,7 +201,7 @@ export async function orchestrateJob(jobId: string): Promise<OrchestrateResult> 
 
     // Update step record with outcome
     if (result.success) {
-      await (admin as ReturnType<typeof createAdminClient>)
+      await (admin as any)
         .from('job_steps')
         .update({
           status:       'completed',
@@ -216,7 +216,7 @@ export async function orchestrateJob(jobId: string): Promise<OrchestrateResult> 
     } else {
       const err = result.error!;
 
-      await (admin as ReturnType<typeof createAdminClient>)
+      await (admin as any)
         .from('job_steps')
         .update({
           status:         'failed',

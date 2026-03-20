@@ -58,7 +58,7 @@ export async function POST(
   }
 
   // Reset job for retry
-  await admin
+  await (admin as any)
     .from('upload_jobs')
     .update({
       status:              'queued',
@@ -75,8 +75,7 @@ export async function POST(
     .eq('id', jobId);
 
   // Reset all items to pending for reprocessing
-  await admin
-    .from('job_items')
+  await (admin as any).from('job_items')
     .update({ status: 'pending', reprocessable: false })
     .eq('job_id', jobId)
     .in('status', ['failed', 'reprocessable']);
@@ -90,7 +89,7 @@ export async function POST(
   if (body.immediate) {
     try {
       const result = await orchestrateJob(jobId);
-      return NextResponse.json({ success: true, queued: true, executed: true, ...result });
+      return NextResponse.json({ queued: true, executed: true, ...result });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       return NextResponse.json({ success: false, queued: true, executed: false, error: message });

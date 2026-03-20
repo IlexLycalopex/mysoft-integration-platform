@@ -47,8 +47,7 @@ export async function GET(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  let query = admin
-    .from('job_items')
+  let query = (admin as any).from('job_items')
     .select('*', { count: 'exact' })
     .eq('job_id', jobId)
     .order('item_sequence', { ascending: true })
@@ -58,7 +57,7 @@ export async function GET(
     query = query.eq('status', statusFilter);
   }
 
-  const { data: items, error, count } = await query.returns<JobItem[]>();
+  const { data: items, error, count } = await query.returns();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

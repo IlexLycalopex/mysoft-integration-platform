@@ -22,7 +22,7 @@ export const submitStep: StepExecutor = {
       const transformedItems = items.filter(i =>
         i.status === 'transformed' || i.status === 'validated'
       );
-      await (admin as ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>)
+      await (admin as any)
         .from('job_items')
         .update({ status: 'posted', posted_at: new Date().toISOString() })
         .in('id', transformedItems.map(i => i.id));
@@ -32,9 +32,9 @@ export const submitStep: StepExecutor = {
         { count: transformedItems.length, transactionType }
       );
 
-      const { data: updatedItems } = await (admin as ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>)
+      const { data: updatedItems } = await (admin as any)
         .from('job_items')
-        .select('*').eq('job_id', job.id).returns<JobItem[]>();
+        .select('*').eq('job_id', job.id).returns();
 
       return {
         success: true,
@@ -97,7 +97,7 @@ export const submitStep: StepExecutor = {
           if (recordId) recordNos.push(recordId);
 
           for (const item of groupItems) {
-            await (admin as ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>)
+            await (admin as any)
               .from('job_items')
               .update({
                 status:                'posted',
@@ -141,7 +141,7 @@ export const submitStep: StepExecutor = {
           const recordId = result.recordId;
           if (recordId) recordNos.push(recordId);
 
-          await (admin as ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>)
+          await (admin as any)
             .from('job_items')
             .update({
               status:                'posted',
@@ -173,9 +173,9 @@ export const submitStep: StepExecutor = {
     }
 
     // Reload all items
-    const { data: updatedItems } = await (admin as ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>)
+    const { data: updatedItems } = await (admin as any)
       .from('job_items')
-      .select('*').eq('job_id', job.id).returns<JobItem[]>();
+      .select('*').eq('job_id', job.id).returns();
 
     // If majority of failures are transient → propagate as transient to trigger job retry
     if (submitted === 0 && transientErrors > 0) {
@@ -262,7 +262,7 @@ async function markItemFailed(
   message: string,
   reprocessable = false
 ): Promise<void> {
-  await (admin as ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>)
+  await (admin as any)
     .from('job_items')
     .update({
       status:         'failed',

@@ -24,7 +24,7 @@ export async function GET(
     .from('user_profiles')
     .select('role, tenant_id')
     .eq('id', user.id)
-    .single<{ role: UserRole; tenant_id: string | null }>();
+    .single();
 
   if (!profile) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
@@ -35,19 +35,19 @@ export async function GET(
     .from('upload_jobs')
     .select('id, tenant_id')
     .eq('id', jobId)
-    .single<{ id: string; tenant_id: string }>();
+    .single();
 
   if (!job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
   if (!isPlatformAdmin && job.tenant_id !== profile.tenant_id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { data: steps, error } = await admin
+  const { data: steps, error } = await (admin as any)
     .from('job_steps')
     .select('*')
     .eq('job_id', jobId)
     .order('sequence', { ascending: true })
-    .returns<JobStep[]>();
+    .returns();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

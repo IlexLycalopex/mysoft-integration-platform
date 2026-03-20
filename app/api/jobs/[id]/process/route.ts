@@ -42,7 +42,7 @@ export async function POST(
       const result = await orchestrateJob(jobId);
       // After processing this job, run a quick worker cycle for any pending retries
       void runWorkerCycle(3).catch(() => {});
-      return NextResponse.json({ success: true, ...result });
+      return NextResponse.json({ ...result });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Processing failed';
       return NextResponse.json({ error: message }, { status: 500 });
@@ -71,7 +71,7 @@ export async function POST(
 
     try {
       const result = await orchestrateJob(jobId);
-      return NextResponse.json({ success: true, ...result });
+      return NextResponse.json({ ...result });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Processing failed';
       return NextResponse.json({ error: message }, { status: 500 });
@@ -115,7 +115,7 @@ export async function POST(
 
   try {
     const result = await orchestrateJob(jobId);
-    return NextResponse.json({ success: true, ...result });
+    return NextResponse.json({ ...result });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Processing failed';
     return NextResponse.json({ error: message }, { status: 500 });

@@ -55,8 +55,7 @@ export class EventWriter {
     itemId?: string
   ): Promise<void> {
     try {
-      await (this.admin as ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>)
-        .from('job_events')
+      await (this.admin as any).from('job_events')
         .insert({
           job_id:        this.jobId,
           job_step_id:   this.stepId ?? null,
@@ -102,8 +101,7 @@ export async function writeJobEvent(
   meta?: Record<string, unknown>
 ): Promise<void> {
   try {
-    await (admin as ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>)
-      .from('job_events')
+    await (admin as any).from('job_events')
       .insert({
         job_id:        jobId,
         event_type:    type,

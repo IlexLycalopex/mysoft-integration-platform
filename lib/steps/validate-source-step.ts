@@ -45,7 +45,7 @@ export const validateSourceStep: StepExecutor = {
       await events.warn('step_failed', message, { missingColumns, actualColumns });
 
       // Mark all items as failed
-      await (ctx.admin as ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>)
+      await (ctx.admin as any)
         .from('job_items')
         .update({
           status:                'failed',

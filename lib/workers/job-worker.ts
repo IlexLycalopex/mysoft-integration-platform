@@ -83,19 +83,19 @@ export async function triggerJobOrchestration(jobId: string): Promise<Orchestrat
   const workerId = generateWorkerId();
 
   // Claim the job atomically via the DB function
-  const { data: claimedJob } = await (admin as ReturnType<typeof createAdminClient>)
+  const { data: claimedJob } = await (admin as any)
     .rpc('claim_next_job', { p_worker_id: workerId })
-    .single<import('@/lib/jobs/types').Job | null>();
+    .single();
 
   // If the specific job wasn't claimed (another worker got it), orchestrate by ID directly
   // This handles the case where the caller already owns the job from an API claim
   if (!claimedJob || claimedJob.id !== jobId) {
     // Verify the job is in a processable state before proceeding
-    const { data: job } = await (admin as ReturnType<typeof createAdminClient>)
+    const { data: job } = await (admin as any)
       .from('upload_jobs')
       .select('id, status, attempt_count, max_attempts')
       .eq('id', jobId)
-      .single<{ id: string; status: string; attempt_count: number; max_attempts: number }>();
+      .single();
 
     if (!job) {
       return { success: false, jobId, status: 'failed', processed: 0, errors: 0, recordNos: [], message: 'Job not found' };

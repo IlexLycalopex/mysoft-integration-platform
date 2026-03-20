@@ -51,7 +51,7 @@ export const buildPayloadStep: StepExecutor = {
         groups.get(groupKey)!.items.push(item);
 
         // Persist endpoint_payload_json on each item
-        await (admin as ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>)
+        await (admin as any)
           .from('job_items')
           .update({ endpoint_payload_json: payload as Record<string, unknown> })
           .eq('id', item.id);
@@ -59,7 +59,7 @@ export const buildPayloadStep: StepExecutor = {
         built++;
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
-        await (admin as ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>)
+        await (admin as any)
           .from('job_items')
           .update({
             status:         'failed',
@@ -80,11 +80,11 @@ export const buildPayloadStep: StepExecutor = {
     }
 
     // Reload items
-    const { data: updatedItems } = await (admin as ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>)
+    const { data: updatedItems } = await (admin as any)
       .from('job_items')
       .select('*')
       .eq('job_id', job.id)
-      .returns<JobItem[]>();
+      .returns();
 
     await events.info('step_completed',
       `Payload build: ${built} built, ${failed} failed, ${groups.size} submission group(s)`,

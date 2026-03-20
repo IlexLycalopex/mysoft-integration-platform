@@ -31,7 +31,7 @@ export interface CreateArtefactParams {
  */
 export async function createSourceArtefact(params: CreateArtefactParams): Promise<string> {
   const admin = createAdminClient();
-  const { data, error } = await (admin as ReturnType<typeof createAdminClient>)
+  const { data, error } = await (admin as any)
     .from('source_artefacts')
     .insert({
       tenant_id:         params.tenantId,
@@ -47,7 +47,7 @@ export async function createSourceArtefact(params: CreateArtefactParams): Promis
       raw_metadata_json: params.metadata ?? null,
     })
     .select('id')
-    .single<{ id: string }>();
+    .single();
 
   if (error || !data) throw new Error(`Failed to create source artefact: ${error?.message}`);
   return data.id;
@@ -57,11 +57,11 @@ export async function createSourceArtefact(params: CreateArtefactParams): Promis
 
 export async function getJob(jobId: string): Promise<Job | null> {
   const admin = createAdminClient();
-  const { data } = await (admin as ReturnType<typeof createAdminClient>)
+  const { data } = await (admin as any)
     .from('upload_jobs')
     .select('*')
     .eq('id', jobId)
-    .single<Job>();
+    .single();
   return data ?? null;
 }
 
@@ -69,7 +69,7 @@ export async function getJob(jobId: string): Promise<Job | null> {
 
 export async function markJobProcessing(jobId: string): Promise<void> {
   const admin = createAdminClient();
-  await (admin as ReturnType<typeof createAdminClient>)
+  await (admin as any)
     .from('upload_jobs')
     .update({ status: 'processing', started_at: new Date().toISOString() })
     .eq('id', jobId);
@@ -92,10 +92,10 @@ export async function releaseJobSuccess(params: ReleaseJobParams): Promise<void>
   const admin = createAdminClient();
   const status: JobStatus = params.errors > 0 ? 'partially_completed' : 'completed';
 
-  await (admin as ReturnType<typeof createAdminClient>)
+  await (admin as any)
     .from('upload_jobs')
     .update({
-      status,
+      status: (status as any),
       processed_count:    params.processed,
       error_count:        params.errors,
       completed_at:       new Date().toISOString(),
@@ -130,10 +130,10 @@ export async function releaseJobFailure(
   const errorCode    = extractErrorCode(err);
 
   if (decision.shouldRetry && decision.nextAttemptAt) {
-    await (admin as ReturnType<typeof createAdminClient>)
+    await (admin as any)
       .from('upload_jobs')
       .update({
-        status:              'awaiting_retry',
+        status: ('awaiting_retry' as any),
         claimed_by:          null,
         claimed_at:          null,
         next_attempt_at:     decision.nextAttemptAt.toISOString(),
@@ -157,10 +157,10 @@ export async function releaseJobFailure(
     const isDead = attemptCount >= maxAttempts;
     const status: JobStatus = isDead ? 'dead_letter' : 'failed';
 
-    await (admin as ReturnType<typeof createAdminClient>)
+    await (admin as any)
       .from('upload_jobs')
       .update({
-        status,
+        status: (status as any),
         completed_at:        new Date().toISOString(),
         claimed_by:          null,
         claimed_at:          null,
@@ -185,10 +185,10 @@ export async function releaseJobFailure(
 
 export async function deadLetterJob(jobId: string, reason: string): Promise<void> {
   const admin = createAdminClient();
-  await (admin as ReturnType<typeof createAdminClient>)
+  await (admin as any)
     .from('upload_jobs')
     .update({
-      status:              'dead_letter',
+      status: ('dead_letter' as any),
       completed_at:        new Date().toISOString(),
       claimed_by:          null,
       claimed_at:          null,
@@ -207,10 +207,10 @@ export async function deadLetterJob(jobId: string, reason: string): Promise<void
 
 export async function recoverDeadLetter(jobId: string, initiatedBy?: string): Promise<void> {
   const admin = createAdminClient();
-  await (admin as ReturnType<typeof createAdminClient>)
+  await (admin as any)
     .from('upload_jobs')
     .update({
-      status:              'queued',
+      status: ('queued' as any),
       attempt_count:       0,
       next_attempt_at:     null,
       error_category:      null,
@@ -233,7 +233,7 @@ export async function recoverDeadLetter(jobId: string, initiatedBy?: string): Pr
  */
 export async function getRetryDueJobs(limit = 10): Promise<Job[]> {
   const admin = createAdminClient();
-  const { data } = await (admin as ReturnType<typeof createAdminClient>)
+  const { data } = await (admin as any)
     .from('upload_jobs')
     .select('*')
     .in('status', ['awaiting_retry', 'queued'])
@@ -241,7 +241,7 @@ export async function getRetryDueJobs(limit = 10): Promise<Job[]> {
     .order('priority', { ascending: false })
     .order('created_at', { ascending: true })
     .limit(limit)
-    .returns<Job[]>();
+    .returns();
 
   return data ?? [];
 }

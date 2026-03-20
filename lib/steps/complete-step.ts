@@ -27,7 +27,7 @@ export const completeStep: StepExecutor = {
     await (admin as ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>)
       .from('upload_jobs')
       .update({
-        status,
+        status: (status as any),
         completed_at: new Date().toISOString(),
         claimed_by:   null,
         claimed_at:   null,
@@ -98,6 +98,7 @@ async function notifyUser(
       jobId:          job.id,
       tenantId:       job.tenant_id,
       status:         errors > 0 ? 'partially_completed' : 'completed',
+      recordNos:      [],
       filename,
       processedCount: processed,
       errorCount:     errors,

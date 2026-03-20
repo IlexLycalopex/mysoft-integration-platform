@@ -147,7 +147,7 @@ export function getRetryDecision(
   }
 
   const nextAt = getNextAttemptAt(attemptCount);
-  const minutesUntil = Math.round((nextAt.getTime() - Date.now()) / 60_000);
+  const minutesUntil = nextAt ? Math.round((nextAt.getTime() - Date.now()) / 60_000) : 0;
 
   return {
     shouldRetry: true,

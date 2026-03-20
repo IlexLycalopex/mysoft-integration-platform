@@ -74,11 +74,11 @@ export const parseStep: StepExecutor = {
       metadata_json:    { raw_row: row },
     }));
 
-    const { data: insertedItems, error: insertErr } = await (admin as ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>)
+    const { data: insertedItems, error: insertErr } = await (admin as any)
       .from('job_items')
       .insert(itemInserts)
       .select('*')
-      .returns<import('@/lib/jobs/types').JobItem[]>();
+      .returns();
 
     if (insertErr || !insertedItems) {
       return {
@@ -112,7 +112,7 @@ async function parseFile(blob: Blob, path: string): Promise<Record<string, strin
       skipEmptyLines: true,
     });
     if (result.errors.length > 0) {
-      const fatal = result.errors.find(e => e.type === 'Delimiter' || e.type === 'Abort');
+      const fatal = result.errors.find(e => (e.type as string) === 'Delimiter' || (e.type as string) === 'Abort');
       if (fatal) throw new Error(`CSV parse error: ${fatal.message}`);
     }
     return result.data;

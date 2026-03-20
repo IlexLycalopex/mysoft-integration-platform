@@ -29,7 +29,7 @@ export const transformStep: StepExecutor = {
       try {
         const mappedFields = mapRowV2(rawRow, columnMappings, { dateLocale });
 
-        await (admin as ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>)
+        await (admin as any)
           .from('job_items')
           .update({
             status:                   'transformed',
@@ -58,11 +58,11 @@ export const transformStep: StepExecutor = {
     }
 
     // Reload items with transformed payloads
-    const { data: updatedItems } = await (admin as ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>)
+    const { data: updatedItems } = await (admin as any)
       .from('job_items')
       .select('*')
       .eq('job_id', job.id)
-      .returns<JobItem[]>();
+      .returns();
 
     await events.info('step_completed',
       `Transform complete: ${transformed} succeeded, ${failed} failed`,
@@ -99,7 +99,7 @@ async function markItemFailed(
   code: string,
   message: string
 ): Promise<void> {
-  await (admin as ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>)
+  await (admin as any)
     .from('job_items')
     .update({
       status:         'failed',
