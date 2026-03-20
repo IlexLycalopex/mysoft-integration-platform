@@ -29,7 +29,7 @@ export async function createBrandingTemplate(
     .from('user_profiles')
     .select('role')
     .eq('id', userId)
-    .maybeSingle<{ role: string }>();
+    .maybeSingle();
 
   if (userRole?.role !== 'platform_super_admin' && userRole?.role !== 'mysoft_support_admin') {
     return { success: false, error: 'Only platform admins can create templates' };
@@ -42,8 +42,8 @@ export async function createBrandingTemplate(
   }
 
   // Create template
-  const { data: template, error } = await admin
-    .from('branding_templates')
+  const { data: template, error } = await (admin as any)
+    .from("branding_templates")
     .insert({
       created_by: userId,
       name: input.name.trim(),
@@ -56,7 +56,7 @@ export async function createBrandingTemplate(
       version: 1,
     })
     .select()
-    .single<BrandingTemplate>();
+    .single();
 
   if (error) {
     return { success: false, error: `Failed to create template: ${error.message}` };
@@ -74,11 +74,11 @@ export async function getBrandingTemplate(
 ): Promise<{ success: boolean; template?: BrandingTemplate; error?: string }> {
   const admin = createAdminClient();
 
-  const { data: template, error } = await admin
-    .from('branding_templates')
+  const { data: template, error } = await (admin as any)
+    .from("branding_templates")
     .select('*')
     .eq('id', templateId)
-    .maybeSingle<BrandingTemplate>();
+    .maybeSingle();
 
   if (error) {
     return { success: false, error: `Failed to fetch template: ${error.message}` };
@@ -113,7 +113,7 @@ export async function listBrandingTemplates(
   const limit = filters.limit || 50;
   const offset = filters.offset || 0;
 
-  let query = admin.from('branding_templates').select('*', { count: 'exact' });
+  let query = (admin as any).from("branding_templates").select('*', { count: 'exact' });
 
   // Apply filters
   if (filters.visibility) {
@@ -163,18 +163,18 @@ export async function createTemplateVersion(
     .from('user_profiles')
     .select('role')
     .eq('id', userId)
-    .maybeSingle<{ role: string }>();
+    .maybeSingle();
 
   if (userRole?.role !== 'platform_super_admin' && userRole?.role !== 'mysoft_support_admin') {
     return { success: false, error: 'Only platform admins can create template versions' };
   }
 
   // Get current template
-  const { data: currentTemplate, error: fetchError } = await admin
-    .from('branding_templates')
+  const { data: currentTemplate, error: fetchError } = await (admin as any)
+    .from("branding_templates")
     .select('*')
     .eq('id', templateId)
-    .maybeSingle<BrandingTemplate>();
+    .maybeSingle();
 
   if (fetchError || !currentTemplate) {
     return { success: false, error: 'Template not found' };
@@ -190,8 +190,8 @@ export async function createTemplateVersion(
 
   // Create new version
   const newVersion = (currentTemplate.version || 1) + 1;
-  const { data: newTemplate, error: createError } = await admin
-    .from('branding_templates')
+  const { data: newTemplate, error: createError } = await (admin as any)
+    .from("branding_templates")
     .insert({
       created_by: userId,
       parent_template_id: templateId,
@@ -206,7 +206,7 @@ export async function createTemplateVersion(
       is_archived: false,
     })
     .select()
-    .single<BrandingTemplate>();
+    .single();
 
   if (createError) {
     return { success: false, error: `Failed to create template version: ${createError.message}` };
@@ -233,14 +233,14 @@ export async function archiveBrandingTemplate(
     .from('user_profiles')
     .select('role')
     .eq('id', userId)
-    .maybeSingle<{ role: string }>();
+    .maybeSingle();
 
   if (userRole?.role !== 'platform_super_admin' && userRole?.role !== 'mysoft_support_admin') {
     return { success: false, error: 'Only platform admins can archive templates' };
   }
 
-  const { error } = await admin
-    .from('branding_templates')
+  const { error } = await (admin as any)
+    .from("branding_templates")
     .update({ is_archived: true })
     .eq('id', templateId);
 
@@ -269,14 +269,14 @@ export async function publishBrandingTemplate(
     .from('user_profiles')
     .select('role')
     .eq('id', userId)
-    .maybeSingle<{ role: string }>();
+    .maybeSingle();
 
   if (userRole?.role !== 'platform_super_admin' && userRole?.role !== 'mysoft_support_admin') {
     return { success: false, error: 'Only platform admins can publish templates' };
   }
 
-  const { error } = await admin
-    .from('branding_templates')
+  const { error } = await (admin as any)
+    .from("branding_templates")
     .update({ visibility: 'platform_published' })
     .eq('id', templateId);
 
@@ -296,11 +296,11 @@ export async function getTemplateUsageStats(
   const admin = createAdminClient();
 
   // Get usage count from template
-  const { data: template, error: templateError } = await admin
-    .from('branding_templates')
+  const { data: template, error: templateError } = await (admin as any)
+    .from("branding_templates")
     .select('usage_count')
     .eq('id', templateId)
-    .maybeSingle<{ usage_count: number }>();
+    .maybeSingle();
 
   if (templateError || !template) {
     return { success: false, error: 'Template not found' };

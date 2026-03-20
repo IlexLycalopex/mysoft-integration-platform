@@ -41,21 +41,11 @@ export const platformDefaults: BrandingData = {
  */
 export async function getTenantBranding(tenantId: string): Promise<TenantBranding> {
   const admin = createAdminClient();
-  const { data } = await admin
-    .from('tenant_branding')
+  const { data } = await (admin as any)
+    .from("tenant_branding")
     .select('brand_name, logo_url, favicon_url, primary_color, accent_color, support_email, support_url, custom_css, custom_domain')
     .eq('tenant_id', tenantId)
-    .maybeSingle<{
-      brand_name: string | null;
-      logo_url: string | null;
-      favicon_url: string | null;
-      primary_color: string | null;
-      accent_color: string | null;
-      support_email: string | null;
-      support_url: string | null;
-      custom_css: string | null;
-      custom_domain: string | null;
-    }>();
+    .maybeSingle();
 
   if (!data) return defaultBranding;
 
@@ -109,8 +99,8 @@ export async function resolveBranding(tenantId: string): Promise<BrandingResolut
   });
 
   // Fetch tenant branding configuration
-  const { data: tenantBrandingConfig } = await admin
-    .from('tenant_branding')
+  const { data: tenantBrandingConfig } = await (admin as any)
+    .from("tenant_branding")
     .select(
       `
       template_id,
@@ -129,7 +119,7 @@ export async function resolveBranding(tenantId: string): Promise<BrandingResolut
       `
     )
     .eq('tenant_id', tenantId)
-    .maybeSingle<TenantBrandingConfig>();
+    .maybeSingle();
 
   if (!tenantBrandingConfig) {
     // No tenant branding config, return platform defaults
@@ -150,11 +140,11 @@ export async function resolveBranding(tenantId: string): Promise<BrandingResolut
     templateVersion = tenantBrandingConfig.template_version;
     templateLocked = !tenantBrandingConfig.allowed_template_ids || tenantBrandingConfig.allowed_template_ids.length === 0;
 
-    const { data: template, error: templateError } = await admin
-      .from('branding_templates')
+    const { data: template, error: templateError } = await (admin as any)
+      .from("branding_templates")
       .select('branding_data, version')
       .eq('id', tenantBrandingConfig.template_id)
-      .maybeSingle<{ branding_data: BrandingData; version: number }>();
+      .maybeSingle();
 
     if (templateError) {
       warnings.push(`Failed to fetch template: ${templateError.message}`);

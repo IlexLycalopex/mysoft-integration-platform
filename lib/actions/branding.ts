@@ -71,7 +71,7 @@ export async function saveBranding(
     .from('user_profiles')
     .select('role')
     .eq('id', user.id)
-    .single<{ role: UserRole }>();
+    .single();
 
   if (!profile || !['platform_super_admin', 'mysoft_support_admin'].includes(profile.role)) {
     return { success: false, error: 'Insufficient permissions' };
@@ -113,8 +113,8 @@ export async function saveBranding(
   }
 
   const admin = createAdminClient();
-  const { error } = await admin
-    .from('tenant_branding')
+  const { error } = await (admin as any)
+    .from("tenant_branding")
     .upsert({
       tenant_id: tenantId,
       brand_name: data.brand_name ?? null,
@@ -153,15 +153,15 @@ export async function resetBranding(
     .from('user_profiles')
     .select('role')
     .eq('id', user.id)
-    .single<{ role: UserRole }>();
+    .single();
 
   if (profile?.role !== 'platform_super_admin') {
     return { success: false, error: 'Super admin access required' };
   }
 
   const admin = createAdminClient();
-  const { error } = await admin
-    .from('tenant_branding')
+  const { error } = await (admin as any)
+    .from("tenant_branding")
     .delete()
     .eq('tenant_id', tenantId);
 
@@ -188,7 +188,7 @@ export async function applyTemplateToTenant(
     .from('user_profiles')
     .select('role')
     .eq('id', user.id)
-    .single<{ role: UserRole }>();
+    .single();
 
   if (!profile || !['platform_super_admin', 'mysoft_support_admin'].includes(profile.role)) {
     return { success: false, error: 'Insufficient permissions' };
@@ -196,19 +196,19 @@ export async function applyTemplateToTenant(
 
   // Fetch template to get version
   const admin = createAdminClient();
-  const { data: template } = await admin
-    .from('branding_templates')
+  const { data: template } = await (admin as any)
+    .from("branding_templates")
     .select('version')
     .eq('id', templateId)
-    .maybeSingle<{ version: number }>();
+    .maybeSingle();
 
   if (!template) {
     return { success: false, error: 'Template not found' };
   }
 
   // Update tenant branding to use template
-  const { error } = await admin
-    .from('tenant_branding')
+  const { error } = await (admin as any)
+    .from("tenant_branding")
     .upsert({
       tenant_id: tenantId,
       template_id: templateId,
@@ -241,15 +241,15 @@ export async function setTenantAllowedTemplates(
     .from('user_profiles')
     .select('role')
     .eq('id', user.id)
-    .single<{ role: UserRole }>();
+    .single();
 
   if (!profile || !['platform_super_admin', 'mysoft_support_admin'].includes(profile.role)) {
     return { success: false, error: 'Insufficient permissions' };
   }
 
   const admin = createAdminClient();
-  const { error } = await admin
-    .from('tenant_branding')
+  const { error } = await (admin as any)
+    .from("tenant_branding")
     .update({ allowed_template_ids: allowedTemplateIds })
     .eq('tenant_id', tenantId);
 
@@ -276,15 +276,15 @@ export async function updateBrandingCustomizations(
     .from('user_profiles')
     .select('role')
     .eq('id', user.id)
-    .single<{ role: UserRole }>();
+    .single();
 
   if (!profile || !['platform_super_admin', 'mysoft_support_admin'].includes(profile.role)) {
     return { success: false, error: 'Insufficient permissions' };
   }
 
   const admin = createAdminClient();
-  const { error } = await admin
-    .from('tenant_branding')
+  const { error } = await (admin as any)
+    .from("tenant_branding")
     .update({
       custom_branding_data: customizations,
       applied_by: user.id,
