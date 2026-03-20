@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import type { UserRole } from '@/types/database';
 import NewTemplateForm from './NewTemplateForm';
+import { getAllObjectTypes } from '@/lib/connectors/registry';
 
 export default async function NewTemplatePage() {
   const supabase = await createClient();
@@ -15,6 +16,8 @@ export default async function NewTemplatePage() {
     .single<{ role: UserRole }>();
 
   if (profile?.role !== 'platform_super_admin') redirect('/platform/mappings');
+
+  const objectTypes = await getAllObjectTypes();
 
   return (
     <div style={{ padding: 24, maxWidth: 900 }}>
@@ -29,7 +32,7 @@ export default async function NewTemplatePage() {
           Create a reusable mapping template — saved as draft until you publish it
         </p>
       </div>
-      <NewTemplateForm />
+      <NewTemplateForm objectTypes={objectTypes} />
     </div>
   );
 }

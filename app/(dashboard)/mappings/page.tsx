@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getEffectiveTenantId } from '@/lib/tenant-context';
 import type { UserRole, TransactionType } from '@/types/database';
 import { TRANSACTION_TYPE_LABELS } from '@/lib/intacct-fields';
+import { getAllObjectTypes } from '@/lib/connectors/registry';
 import CloneMappingButton from './CloneMappingButton';
 import DownloadTemplateButton from './DownloadTemplateButton';
 
@@ -92,6 +93,10 @@ export default async function MappingsPage() {
     return acc;
   }, {});
 
+  const objectTypes = await getAllObjectTypes();
+  const typeLabels: Record<string, string> = { ...TRANSACTION_TYPE_LABELS };
+  for (const ot of objectTypes) { typeLabels[ot.key] = ot.displayName; }
+
   const updatesAvailable = mappings.filter((m) => m.sync_status === 'update_available').length;
   const conflictsCount   = mappings.filter((m) => m.sync_status === 'conflict').length;
 
@@ -140,7 +145,12 @@ export default async function MappingsPage() {
             </span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {Object.entries(TRANSACTION_TYPE_LABELS).map(([type, label]) => {
+            {Object.keys(groupedTemplates).sort((a, b) => {
+              const ai = objectTypes.findIndex(t => t.key === a);
+              const bi = objectTypes.findIndex(t => t.key === b);
+              return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+            }).map((type) => {
+              const label = typeLabels[type] ?? type;
               const group = groupedTemplates[type];
               if (!group?.length) return null;
               return (
@@ -208,7 +218,12 @@ export default async function MappingsPage() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {Object.entries(TRANSACTION_TYPE_LABELS).map(([type, label]) => {
+            {Object.keys(grouped).sort((a, b) => {
+              const ai = objectTypes.findIndex(t => t.key === a);
+              const bi = objectTypes.findIndex(t => t.key === b);
+              return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+            }).map((type) => {
+              const label = typeLabels[type] ?? type;
               const group = grouped[type];
               if (!group?.length) return null;
               return (

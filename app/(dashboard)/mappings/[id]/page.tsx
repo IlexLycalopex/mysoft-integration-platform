@@ -8,6 +8,7 @@ import EditMappingForm from './EditMappingForm';
 import CloneMappingButton from '../CloneMappingButton';
 import TemplateSyncBanner from '../TemplateSyncBanner';
 import type { ColumnMappingEntryV2 } from '@/lib/mapping-engine/types';
+import { getAllObjectTypes } from '@/lib/connectors/registry';
 
 interface MappingFull {
   id: string;
@@ -67,6 +68,8 @@ export default async function EditMappingPage({ params }: { params: Promise<{ id
   }
 
   const isReadOnly = mapping.is_template || !canManage;
+
+  const objectTypes = await getAllObjectTypes();
 
   // For sync banner — load parent template's current column_mappings if update available
   let parentTemplateName: string | null = null;
@@ -190,9 +193,10 @@ export default async function EditMappingPage({ params }: { params: Promise<{ id
           mappingId={mapping.id}
           initialName={mapping.name}
           initialDescription={mapping.description}
-          initialTransactionType={mapping.transaction_type!}
+          initialTransactionType={mapping.transaction_type}
           initialIsDefault={mapping.is_default}
           initialColumnMappings={mapping.column_mappings}
+          objectTypes={objectTypes}
         />
       )}
     </div>

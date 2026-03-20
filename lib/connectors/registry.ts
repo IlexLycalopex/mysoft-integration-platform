@@ -8,7 +8,53 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { INTACCT_FIELDS } from '@/lib/intacct-fields';
+import { INTACCT_FIELDS, type IntacctField } from '@/lib/intacct-fields';
+
+// ── ObjectTypeOption — lightweight shape for mapping editor dropdowns ──────────
+// Carries displayName + resolved fields so client components need no DB access.
+
+export interface ObjectTypeOption {
+  key: string;
+  displayName: string;
+  fields: IntacctField[];
+  sortOrder: number;
+}
+
+/**
+ * Returns all active object types across all active connectors,
+ * with their field schemas resolved as IntacctField[].
+ * Falls back to INTACCT_FIELDS for system types if DB schema is empty.
+ */
+export async function getAllObjectTypes(): Promise<ObjectTypeOption[]> {
+  const admin = createAdminClient();
+  const { data, error } = await (admin as any)
+    .from('endpoint_object_types')
+    .select('object_key, display_name, field_schema, sort_order, endpoint_connectors!inner(is_active)')
+    .eq('is_active', true)
+    .eq('endpoint_connectors.is_active', true)
+    .order('sort_order', { ascending: true });
+
+  if (error || !data) {
+    // Fallback: return built-in types
+    return Object.entries(INTACCT_FIELDS).map(([key, fields], i) => ({
+      key,
+      displayName: key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+      fields,
+      sortOrder: i * 10,
+    }));
+  }
+
+  return (data as any[]).map((row) => {
+    const dbFields: IntacctField[] | null = row.field_schema?.fields ?? null;
+    const fields: IntacctField[] = dbFields ?? INTACCT_FIELDS[row.object_key] ?? [];
+    return {
+      key: row.object_key as string,
+      displayName: row.display_name as string,
+      fields,
+      sortOrder: row.sort_order as number,
+    };
+  });
+}
 
 // ── Registry types ─────────────────────────────────────────────────────────────
 

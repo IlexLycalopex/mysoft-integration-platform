@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { TRANSACTION_TYPE_LABELS } from '@/lib/intacct-fields';
 import type { UserRole, TransactionType, ColumnMappingEntry } from '@/types/database';
+import { getAllObjectTypes } from '@/lib/connectors/registry';
 import EditTemplateForm from './EditTemplateForm';
 import TemplateStatusButton from '../TemplateStatusButton';
 
@@ -49,6 +50,8 @@ export default async function EditTemplatePage({ params }: { params: Promise<{ i
 
   if (!template) notFound();
 
+  const objectTypes = await getAllObjectTypes();
+
   return (
     <div style={{ padding: 24, maxWidth: 900 }}>
       <div style={{ marginBottom: 24 }}>
@@ -60,7 +63,7 @@ export default async function EditTemplatePage({ params }: { params: Promise<{ i
             <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--navy)', letterSpacing: -0.3, margin: 0 }}>
               {template.name}
             </h1>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>{TRANSACTION_TYPE_LABELS[template.transaction_type]}</span>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>{TRANSACTION_TYPE_LABELS[template.transaction_type] ?? objectTypes.find(t => t.key === template.transaction_type)?.displayName ?? template.transaction_type}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {template.template_status === 'published' ? (
@@ -89,6 +92,7 @@ export default async function EditTemplatePage({ params }: { params: Promise<{ i
           initialDescription={template.description}
           initialTransactionType={template.transaction_type}
           initialColumnMappings={template.column_mappings}
+          objectTypes={objectTypes}
         />
       ) : (
         /* Read-only view for support admin */

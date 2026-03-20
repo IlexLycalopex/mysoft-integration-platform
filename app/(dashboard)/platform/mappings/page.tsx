@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { TRANSACTION_TYPE_LABELS } from '@/lib/intacct-fields';
 import type { UserRole, TransactionType } from '@/types/database';
+import { getAllObjectTypes } from '@/lib/connectors/registry';
 import TemplateStatusButton from './TemplateStatusButton';
 
 interface TemplateRow {
@@ -46,6 +47,11 @@ export default async function PlatformMappingsPage() {
     return acc;
   }, {});
 
+  const objectTypes = await getAllObjectTypes();
+  // Build a display-name map: DB types take priority, built-in labels as fallback
+  const typeLabels: Record<string, string> = { ...TRANSACTION_TYPE_LABELS };
+  for (const ot of objectTypes) { typeLabels[ot.key] = ot.displayName; }
+
   const totalPublished = (templates ?? []).filter((t) => t.template_status === 'published').length;
   const totalDraft = (templates ?? []).filter((t) => t.template_status === 'draft').length;
 
@@ -86,7 +92,12 @@ export default async function PlatformMappingsPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {Object.entries(TRANSACTION_TYPE_LABELS).map(([type, label]) => {
+          {Object.keys(grouped).sort((a, b) => {
+            const ai = objectTypes.findIndex(t => t.key === a);
+            const bi = objectTypes.findIndex(t => t.key === b);
+            return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+          }).map((type) => {
+            const label = typeLabels[type] ?? type;
             const group = grouped[type];
             if (!group?.length) return null;
             return (

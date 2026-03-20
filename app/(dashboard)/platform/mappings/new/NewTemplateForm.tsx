@@ -3,8 +3,9 @@
 import { useActionState } from 'react';
 import { createTemplate } from '@/lib/actions/mappings';
 import MappingEditor from '@/app/(dashboard)/mappings/MappingEditor';
+import type { ObjectTypeOption } from '@/lib/connectors/registry';
 
-export default function NewTemplateForm() {
+export default function NewTemplateForm({ objectTypes }: { objectTypes: ObjectTypeOption[] }) {
   const [state, action, pending] = useActionState(createTemplate, {});
 
   return (
@@ -15,6 +16,7 @@ export default function NewTemplateForm() {
       fieldErrors={state.fieldErrors}
       submitLabel="Create template"
       isTemplate
+      objectTypes={objectTypes}
     />
   );
 }

@@ -4,15 +4,17 @@ import { useActionState, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateMapping, deleteMapping } from '@/lib/actions/mappings';
 import MappingEditor from '../MappingEditor';
-import type { TransactionType, ColumnMappingEntry } from '@/types/database';
+import type { ColumnMappingEntry } from '@/types/database';
+import type { ObjectTypeOption } from '@/lib/connectors/registry';
 
 interface Props {
   mappingId: string;
   initialName: string;
   initialDescription: string | null;
-  initialTransactionType: TransactionType;
+  initialTransactionType: string | null;
   initialIsDefault: boolean;
   initialColumnMappings: ColumnMappingEntry[];
+  objectTypes: ObjectTypeOption[];
 }
 
 export default function EditMappingForm({
@@ -22,6 +24,7 @@ export default function EditMappingForm({
   initialTransactionType,
   initialIsDefault,
   initialColumnMappings,
+  objectTypes,
 }: Props) {
   const router = useRouter();
   const boundAction = updateMapping.bind(null, mappingId);
@@ -57,6 +60,7 @@ export default function EditMappingForm({
       submitLabel="Save changes"
       showDeleteButton
       onDelete={handleDelete}
+      objectTypes={objectTypes}
     />
   );
 }

@@ -4,6 +4,7 @@ import { useState, useId } from 'react';
 import type { TransactionType, ColumnMappingEntry, MappingTransform } from '@/types/database';
 import type { ColumnMappingEntryV2 } from '@/lib/mapping-engine/types';
 import { INTACCT_FIELDS, TRANSACTION_TYPE_LABELS, TRANSFORM_LABELS } from '@/lib/intacct-fields';
+import type { ObjectTypeOption } from '@/lib/connectors/registry';
 import { normaliseEntry, blankV2Entry } from '@/lib/mapping-engine/compat';
 import PipelineEditor from '@/components/mappings/PipelineEditor';
 import InlineTestPanel from '@/components/mappings/InlineTestPanel';
@@ -12,7 +13,7 @@ import BulkPreviewModal from '@/components/mappings/BulkPreviewModal';
 interface Props {
   initialName?: string;
   initialDescription?: string;
-  initialTransactionType?: TransactionType;
+  initialTransactionType?: string | null;
   initialIsDefault?: boolean;
   initialColumnMappings?: (ColumnMappingEntry | ColumnMappingEntryV2)[];
   onSubmit: (formData: FormData) => void;
@@ -24,17 +25,20 @@ interface Props {
   showDeleteButton?: boolean;
   onDelete?: () => void;
   isTemplate?: boolean;
+  objectTypes?: ObjectTypeOption[];
 }
 
-const TRANSACTION_TYPES: TransactionType[] = [
-  'journal_entry', 'ar_invoice', 'ap_bill', 'expense_report',
-  'ar_payment', 'ap_payment', 'timesheet', 'vendor', 'customer',
-];
+const FALLBACK_TYPES: ObjectTypeOption[] = Object.entries(TRANSACTION_TYPE_LABELS).map(([key, displayName], i) => ({
+  key,
+  displayName,
+  fields: INTACCT_FIELDS[key] ?? [],
+  sortOrder: i * 10,
+}));
 
 export default function MappingEditor({
   initialName = '',
   initialDescription = '',
-  initialTransactionType = 'journal_entry',
+  initialTransactionType,
   initialIsDefault = false,
   initialColumnMappings = [],
   onSubmit,
@@ -46,12 +50,16 @@ export default function MappingEditor({
   showDeleteButton,
   onDelete,
   isTemplate = false,
+  objectTypes,
 }: Props) {
   const uid = useId();
 
+  const resolvedTypes = objectTypes?.length ? objectTypes : FALLBACK_TYPES;
+  const defaultType = resolvedTypes[0]?.key ?? 'journal_entry';
+
   const [name, setName] = useState(initialName);
   const [description, setDescription] = useState(initialDescription);
-  const [txType, setTxType] = useState<TransactionType>(initialTransactionType);
+  const [txType, setTxType] = useState<string>(initialTransactionType ?? defaultType);
   const [isDefault, setIsDefault] = useState(initialIsDefault);
 
   // Normalise all entries to v2 on mount
@@ -66,7 +74,8 @@ export default function MappingEditor({
   const [testOpenRow, setTestOpenRow] = useState<string | null>(null);
   const [showBulkPreview, setShowBulkPreview] = useState(false);
 
-  const fields = INTACCT_FIELDS[txType] ?? [];
+  const activeType = resolvedTypes.find(t => t.key === txType);
+  const fields = activeType?.fields ?? INTACCT_FIELDS[txType] ?? [];
   const headerFields = fields.filter(f => f.group === 'header');
   const lineFields   = fields.filter(f => f.group === 'line');
 
@@ -139,8 +148,8 @@ export default function MappingEditor({
           <div>
             <label htmlFor={`${uid}-type`} style={labelStyle}>Transaction type *</label>
             <select id={`${uid}-type`} name="transaction_type" value={txType}
-              onChange={e => setTxType(e.target.value as TransactionType)} style={inputStyle}>
-              {TRANSACTION_TYPES.map(t => <option key={t} value={t}>{TRANSACTION_TYPE_LABELS[t]}</option>)}
+              onChange={e => setTxType(e.target.value)} style={inputStyle}>
+              {resolvedTypes.map(t => <option key={t.key} value={t.key}>{t.displayName}</option>)}
             </select>
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
@@ -154,7 +163,7 @@ export default function MappingEditor({
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16, cursor: 'pointer', fontSize: 13 }}>
             <input type="checkbox" checked={isDefault} onChange={e => setIsDefault(e.target.checked)}
               style={{ accentColor: 'var(--blue)', width: 14, height: 14 }} />
-            <span style={{ color: 'var(--navy)', fontWeight: 500 }}>Set as default for {TRANSACTION_TYPE_LABELS[txType]}</span>
+            <span style={{ color: 'var(--navy)', fontWeight: 500 }}>Set as default for {activeType?.displayName ?? TRANSACTION_TYPE_LABELS[txType as TransactionType] ?? txType}</span>
           </label>
         )}
       </div>

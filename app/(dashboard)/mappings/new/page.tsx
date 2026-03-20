@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import type { UserRole } from '@/types/database';
 import NewMappingForm from './NewMappingForm';
+import { getAllObjectTypes } from '@/lib/connectors/registry';
 
 export default async function NewMappingPage() {
   const supabase = await createClient();
@@ -17,6 +18,8 @@ export default async function NewMappingPage() {
   const canManage = ['platform_super_admin', 'mysoft_support_admin', 'tenant_admin', 'tenant_operator'];
   if (!profile || !canManage.includes(profile.role)) redirect('/mappings');
 
+  const objectTypes = await getAllObjectTypes();
+
   return (
     <div style={{ padding: 24, maxWidth: 900 }}>
       <div style={{ marginBottom: 24 }}>
@@ -30,7 +33,7 @@ export default async function NewMappingPage() {
           Define how your CSV columns map to Sage Intacct fields
         </p>
       </div>
-      <NewMappingForm />
+      <NewMappingForm objectTypes={objectTypes} />
     </div>
   );
 }

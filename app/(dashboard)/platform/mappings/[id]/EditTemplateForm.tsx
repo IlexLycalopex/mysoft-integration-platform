@@ -4,14 +4,16 @@ import { useActionState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateTemplate, deleteTemplate } from '@/lib/actions/mappings';
 import MappingEditor from '@/app/(dashboard)/mappings/MappingEditor';
-import type { TransactionType, ColumnMappingEntry } from '@/types/database';
+import type { ColumnMappingEntry } from '@/types/database';
+import type { ObjectTypeOption } from '@/lib/connectors/registry';
 
 interface Props {
   templateId: string;
   initialName: string;
   initialDescription: string | null;
-  initialTransactionType: TransactionType;
+  initialTransactionType: string | null;
   initialColumnMappings: ColumnMappingEntry[];
+  objectTypes: ObjectTypeOption[];
 }
 
 export default function EditTemplateForm({
@@ -20,6 +22,7 @@ export default function EditTemplateForm({
   initialDescription,
   initialTransactionType,
   initialColumnMappings,
+  objectTypes,
 }: Props) {
   const router = useRouter();
   const boundAction = updateTemplate.bind(null, templateId);
@@ -49,6 +52,7 @@ export default function EditTemplateForm({
       showDeleteButton
       onDelete={handleDelete}
       isTemplate
+      objectTypes={objectTypes}
     />
   );
 }
