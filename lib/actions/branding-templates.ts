@@ -88,9 +88,25 @@ export async function getBrandingTemplate(
     return { success: false, error: 'Template not found' };
   }
 
-  // Check visibility
-  if (template.visibility === 'private' && template.created_by !== userId) {
-    return { success: false, error: 'Not authorized to view this template' };
+  // If userId is provided, check if they are a platform admin — platform admins see all templates
+  if (userId) {
+    const { data: userRole } = await admin
+      .from('user_profiles')
+      .select('role')
+      .eq('id', userId)
+      .maybeSingle();
+
+    const isPlatformAdmin =
+      userRole?.role === 'platform_super_admin' || userRole?.role === 'mysoft_support_admin';
+
+    if (!isPlatformAdmin && template.visibility === 'private' && template.created_by !== userId) {
+      return { success: false, error: 'Not authorized to view this template' };
+    }
+  } else {
+    // No userId — only allow non-private templates
+    if (template.visibility === 'private') {
+      return { success: false, error: 'Not authorized to view this template' };
+    }
   }
 
   return { success: true, template };

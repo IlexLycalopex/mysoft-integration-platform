@@ -45,7 +45,7 @@ export default function TemplatePreview({ branding, compact = false }: TemplateP
         )}
         {!compact && (
           <span style={{ color: '#fff', fontWeight: 700, fontSize: 12, letterSpacing: '-0.2px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {brandName.length > 22 ? brandName.slice(0, 22) + '…' : brandName}
+            {brandName.length > 22 ? brandName.slice(0, 22) + '...' : brandName}
           </span>
         )}
         <div style={{ width: compact ? 9 : 14, height: compact ? 9 : 14, borderRadius: '50%', background: accent, marginLeft: 'auto', flexShrink: 0 }} />
