@@ -81,6 +81,12 @@ const platformGroups: NavItem[][] = [
       icon: <svg {...I} viewBox="0 0 24 24" {...S}><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
     },
     {
+      href: '/platform/branding-templates',
+      label: 'Branding',
+      roles: ['platform_super_admin', 'mysoft_support_admin'],
+      icon: <svg {...I} viewBox="0 0 24 24" {...S}><circle cx="12" cy="12" r="3"/><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z" fill="none"/><path d="M12 6v2M12 16v2M6 12H4M20 12h-2"/></svg>,
+    },
+    {
       href: '/platform/plans',
       label: 'Plans',
       roles: ['platform_super_admin'],
