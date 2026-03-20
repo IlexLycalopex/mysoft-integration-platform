@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import TemplatePreview from '@/components/platform/TemplatePreview';
 import TemplateEditor from '@/components/platform/TemplateEditor';
 import {
@@ -41,8 +41,9 @@ function visibilityLabel(v: string) {
   return 'Private';
 }
 
-export default function TemplateDetailPage({ params }: { params: { id: string } }) {
+export default function TemplateDetailPage() {
   const router = useRouter();
+  const params = useParams<{ id: string }>();
   const [template, setTemplate] = useState<BrandingTemplate | undefined>();
   const [usage, setUsage] = useState<{ usage_count: number; tenants: Array<{ tenant_id: string; tenant_name: string }> } | undefined>();
   const [isLoading, setIsLoading] = useState(true);
