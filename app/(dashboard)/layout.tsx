@@ -137,10 +137,10 @@ export default async function DashboardLayout({
         sandboxTenantId={sandboxTenantId}
         planName={planName}
         branding={{
-          brand_name: branding.brand_name,
-          logo_url: branding.logo_url,
-          favicon_url: branding.favicon_url,
-          primary_color: branding.primary_color,
+          brand_name: branding.brand_name ?? null,
+          logo_url: branding.logo_url ?? null,
+          favicon_url: branding.favicon_url ?? null,
+          primary_color: branding.primary_color ?? 'var(--navy)',
         }}
       />
       {emulationCtx && (
