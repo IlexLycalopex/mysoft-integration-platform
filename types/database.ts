@@ -50,6 +50,7 @@ export type TransactionType =
 
 export type MappingTransform = 'none' | 'date_format' | 'decimal' | 'boolean' | 'trim' | 'tr_type';
 
+/** V1 mapping entry — still used in the DB and by the compat shim */
 export interface ColumnMappingEntry {
   id: string;
   source_column: string;
@@ -57,6 +58,9 @@ export interface ColumnMappingEntry {
   required: boolean;
   transform: MappingTransform;
 }
+
+/** V2 mapping entry — re-exported from the engine for use throughout the app */
+export type { ColumnMappingEntryV2, TransformStep } from '@/lib/mapping-engine/types';
 
 export type UserRole =
   | 'platform_super_admin'

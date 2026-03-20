@@ -15,6 +15,8 @@ import {
 } from '@/lib/intacct/client';
 import type { IntacctCredentials } from '@/lib/intacct/types';
 import type { ColumnMappingEntry } from '@/types/database';
+import type { ColumnMappingEntryV2 } from '@/lib/mapping-engine/types';
+import { mapRow as mapRowV2 } from '@/lib/mapping-engine/execute';
 import type {
   JournalEntryLine, ArInvoiceLine, ApBillLine, ExpenseReportLine,
   TimesheetLine,
@@ -339,7 +341,7 @@ interface RowError { rowNumbers: number[]; message: string; rawData: Record<stri
 
 async function submitGroupedJournalEntries(
   creds: IntacctCredentials,
-  columnMappings: ColumnMappingEntry[],
+  columnMappings: (ColumnMappingEntry | ColumnMappingEntryV2)[],
   rows: RawRow[],
   dateLocale: 'uk' | 'us' = 'uk',
   dryRun = false
@@ -348,27 +350,23 @@ async function submitGroupedJournalEntries(
   const recordNos: string[] = [];
   const groupLog: ProcessingLogEntry[] = [];
 
-  // Step 1 — map all rows to Intacct field names
+  // Step 1 — map all rows to Intacct field names via v2 pipeline engine
   type MappedRow = { mapped: Record<string, string>; rowNum: number; raw: RawRow };
   const mappedRows: MappedRow[] = [];
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const rowNum = i + 2;
-    const mapped: Record<string, string> = {};
     let rowOk = true;
+    let mapped: Record<string, string> = {};
 
-    for (const cm of columnMappings) {
-      if (!cm.target_field) continue;
-      let value = row[cm.source_column] ?? '';
-      value = applyTransform(value, cm.transform, dateLocale);
-      if (cm.required && !value) {
-        rowErrors.push({ rowNumbers: [rowNum], message: `Required field '${cm.source_column}' (→ ${cm.target_field}) is empty`, rawData: row });
-        logEntry(groupLog, 'error', `Row ${rowNum}: required field '${cm.source_column}' is empty`);
-        rowOk = false;
-        break;
-      }
-      mapped[cm.target_field] = value;
+    try {
+      mapped = mapRowV2(row as Record<string, string>, columnMappings, { dateLocale });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      rowErrors.push({ rowNumbers: [rowNum], message, rawData: row });
+      logEntry(groupLog, 'error', `Row ${rowNum}: ${message}`);
+      rowOk = false;
     }
     if (rowOk) mappedRows.push({ mapped, rowNum, raw: row });
   }
@@ -575,7 +573,7 @@ async function notifyApprovalRequired(
 async function submitRow(
   creds: IntacctCredentials,
   txType: string,
-  columnMappings: ColumnMappingEntry[],
+  columnMappings: (ColumnMappingEntry | ColumnMappingEntryV2)[],
   row: RawRow,
   dateLocale: 'uk' | 'us' = 'uk'
 ): Promise<string | undefined> {
@@ -600,26 +598,18 @@ async function submitRow(
   }
 }
 
-/** Map a raw CSV row to Intacct field names using the column mapping. */
+/** Map a raw CSV row to Intacct field names using the v2 pipeline engine. */
 function mapRow(
-  columnMappings: ColumnMappingEntry[],
+  columnMappings: (ColumnMappingEntry | ColumnMappingEntryV2)[],
   row: RawRow,
   dateLocale: 'uk' | 'us'
 ): Record<string, string> {
-  const mapped: Record<string, string> = {};
-  for (const cm of columnMappings) {
-    if (!cm.target_field) continue;
-    let value = row[cm.source_column] ?? '';
-    value = applyTransform(value, cm.transform, dateLocale);
-    if (cm.required && !value) throw new Error(`Required field '${cm.source_column}' (→ ${cm.target_field}) is empty`);
-    mapped[cm.target_field] = value;
-  }
-  return mapped;
+  return mapRowV2(row as Record<string, string>, columnMappings, { dateLocale });
 }
 
 async function submitArInvoice(
   creds: IntacctCredentials,
-  columnMappings: ColumnMappingEntry[],
+  columnMappings: (ColumnMappingEntry | ColumnMappingEntryV2)[],
   row: RawRow,
   dateLocale: 'uk' | 'us'
 ): Promise<string | undefined> {
@@ -659,7 +649,7 @@ async function submitArInvoice(
 
 async function submitApBill(
   creds: IntacctCredentials,
-  columnMappings: ColumnMappingEntry[],
+  columnMappings: (ColumnMappingEntry | ColumnMappingEntryV2)[],
   row: RawRow,
   dateLocale: 'uk' | 'us'
 ): Promise<string | undefined> {
@@ -699,7 +689,7 @@ async function submitApBill(
 
 async function submitArPayment(
   creds: IntacctCredentials,
-  columnMappings: ColumnMappingEntry[],
+  columnMappings: (ColumnMappingEntry | ColumnMappingEntryV2)[],
   row: RawRow,
   dateLocale: 'uk' | 'us'
 ): Promise<string | undefined> {
@@ -730,7 +720,7 @@ async function submitArPayment(
 
 async function submitApPayment(
   creds: IntacctCredentials,
-  columnMappings: ColumnMappingEntry[],
+  columnMappings: (ColumnMappingEntry | ColumnMappingEntryV2)[],
   row: RawRow,
   dateLocale: 'uk' | 'us'
 ): Promise<string | undefined> {
@@ -761,7 +751,7 @@ async function submitApPayment(
 
 async function submitExpenseReport(
   creds: IntacctCredentials,
-  columnMappings: ColumnMappingEntry[],
+  columnMappings: (ColumnMappingEntry | ColumnMappingEntryV2)[],
   row: RawRow,
   dateLocale: 'uk' | 'us'
 ): Promise<string | undefined> {
@@ -803,7 +793,7 @@ async function submitExpenseReport(
 
 async function submitTimesheet(
   creds: IntacctCredentials,
-  columnMappings: ColumnMappingEntry[],
+  columnMappings: (ColumnMappingEntry | ColumnMappingEntryV2)[],
   row: RawRow,
   dateLocale: 'uk' | 'us'
 ): Promise<string | undefined> {
@@ -840,7 +830,7 @@ async function submitTimesheet(
 
 async function submitVendor(
   creds: IntacctCredentials,
-  columnMappings: ColumnMappingEntry[],
+  columnMappings: (ColumnMappingEntry | ColumnMappingEntryV2)[],
   row: RawRow,
   dateLocale: 'uk' | 'us'
 ): Promise<string | undefined> {
@@ -875,7 +865,7 @@ async function submitVendor(
 
 async function submitCustomer(
   creds: IntacctCredentials,
-  columnMappings: ColumnMappingEntry[],
+  columnMappings: (ColumnMappingEntry | ColumnMappingEntryV2)[],
   row: RawRow,
   dateLocale: 'uk' | 'us'
 ): Promise<string | undefined> {
@@ -969,34 +959,9 @@ function normaliseDate(value: string, locale: 'uk' | 'us'): string {
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 }
 
-// ── Field transform ───────────────────────────────────────────────────────────
-
-function applyTransform(value: string, transform: string, dateLocale: 'uk' | 'us' = 'uk'): string {
-  switch (transform) {
-    case 'trim':
-      return value.trim();
-    case 'decimal': {
-      const n = parseFloat(value.replace(/[£$€,]/g, '').trim());
-      return isNaN(n) ? value : n.toFixed(2);
-    }
-    case 'date_format':
-      return normaliseDate(value.trim(), dateLocale);
-    case 'boolean': {
-      const lower = value.toLowerCase().trim();
-      if (['yes','true','1','y'].includes(lower)) return 'true';
-      if (['no','false','0','n'].includes(lower)) return 'false';
-      return value;
-    }
-    case 'tr_type': {
-      const lower = value.toLowerCase().trim();
-      if (['debit','dr','1'].includes(lower)) return '1';
-      if (['credit','cr','-1'].includes(lower)) return '-1';
-      return value;
-    }
-    default:
-      return value;
-  }
-}
+// ── Field transform (v1 legacy — kept for reference only) ────────────────────
+// Actual transformation is now handled by the v2 pipeline engine (execute.ts).
+// This function is no longer called in production paths.
 
 async function parseFile(blob: Blob, path: string): Promise<RawRow[]> {
   const ext = path.split('.').pop()?.toLowerCase();
