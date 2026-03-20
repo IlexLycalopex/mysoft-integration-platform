@@ -205,8 +205,8 @@ export default async function JobHistoryPage({ searchParams }: { searchParams: P
         ))}
       </div>
 
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }} aria-label={`Job History — page ${page}`}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflowX: 'auto' }}>
+        <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse' }} aria-label={`Job History — page ${page}`}>
           <thead>
             <tr>
               {[...(isPlatformAdmin ? ['Tenant'] : []), 'File', 'Entity', 'Source', 'Status', 'Progress', 'Intacct Ref', 'Duration', 'Started', ...(canProcess ? ['Action'] : [])].map((h) => (
@@ -298,7 +298,7 @@ export default async function JobHistoryPage({ searchParams }: { searchParams: P
                   <td style={tdStyle}>
                     {job.intacct_record_nos?.length ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        {job.intacct_record_nos.map((rn) => (
+                        {[...new Set(job.intacct_record_nos)].map((rn) => (
                           <span key={rn} style={{ fontSize: 11, fontWeight: 600, color: '#1A6B30', background: '#E6F7ED', border: '1px solid #A3D9B1', borderRadius: 4, padding: '1px 6px', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
                             #{rn}
                           </span>
