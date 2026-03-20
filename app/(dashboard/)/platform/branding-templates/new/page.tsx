@@ -3,16 +3,15 @@
 import { TemplateEditor } from '@/components/platform/TemplateEditor';
 import { createBrandingTemplate } from '@/lib/actions/branding-templates';
 import { BrandingData } from '@/lib/types/branding';
-import { useSession } from '@supabase/auth-helpers-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
 
 /**
  * Create new branding template page
  */
 export default function NewTemplatesPage() {
   const router = useRouter();
-  const session = useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -29,7 +28,16 @@ export default function NewTemplatesPage() {
     setError(undefined);
 
     try {
-      const result = await createBrandingTemplate(data, session?.user?.id || '');
+      // Get current user from Supabase client
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        setError('You must be logged in to create templates');
+        return;
+      }
+
+      const result = await createBrandingTemplate(data, user.id);
 
       if (!result.success) {
         setError(result.error || 'Failed to create template');

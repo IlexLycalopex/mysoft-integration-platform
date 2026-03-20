@@ -4,7 +4,7 @@ import { TemplatePreview } from '@/components/platform/TemplatePreview';
 import { TemplateEditor } from '@/components/platform/TemplateEditor';
 import { archiveBrandingTemplate, createTemplateVersion, getBrandingTemplate, getTemplateUsageStats, publishBrandingTemplate } from '@/lib/actions/branding-templates';
 import { BrandingData } from '@/lib/types/branding';
-import { useSession } from '@supabase/auth-helpers-react';
+import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -14,20 +14,34 @@ import { useEffect, useState } from 'react';
  */
 export default function TemplateDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const session = useSession();
   const [template, setTemplate] = useState<any>();
   const [usage, setUsage] = useState<any>();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>();
   const [tab, setTab] = useState<'preview' | 'version' | 'usage' | 'settings'>('preview');
+  const [userId, setUserId] = useState<string>();
 
   useEffect(() => {
-    loadTemplate();
-    loadUsage();
-  }, [params.id]);
+    // Get current user
+    const getUser = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+      }
+    };
+    getUser();
+  }, []);
+
+  useEffect(() => {
+    if (userId) {
+      loadTemplate();
+      loadUsage();
+    }
+  }, [params.id, userId]);
 
   const loadTemplate = async () => {
-    const result = await getBrandingTemplate(params.id, session?.user?.id);
+    const result = await getBrandingTemplate(params.id, userId);
     if (result.success) {
       setTemplate(result.template);
     } else {
@@ -52,7 +66,7 @@ export default function TemplateDetailPage({ params }: { params: { id: string } 
     visibility: 'private' | 'shared_with_tenants' | 'platform_published';
     thumbnail_url?: string;
   }) => {
-    const result = await createTemplateVersion(params.id, data, session?.user?.id || '');
+    const result = await createTemplateVersion(params.id, data, userId || '');
     if (result.success) {
       router.push(`/platform/branding-templates/${result.template?.id}`);
       router.refresh();
@@ -62,7 +76,7 @@ export default function TemplateDetailPage({ params }: { params: { id: string } 
   };
 
   const handlePublish = async () => {
-    const result = await publishBrandingTemplate(params.id, session?.user?.id || '');
+    const result = await publishBrandingTemplate(params.id, userId || '');
     if (result.success) {
       await loadTemplate();
     } else {
@@ -73,7 +87,7 @@ export default function TemplateDetailPage({ params }: { params: { id: string } 
   const handleArchive = async () => {
     if (!confirm('Archive this template? It cannot be used by new tenants.')) return;
 
-    const result = await archiveBrandingTemplate(params.id, session?.user?.id || '');
+    const result = await archiveBrandingTemplate(params.id, userId || '');
     if (result.success) {
       router.push('/platform/branding-templates');
     } else {
