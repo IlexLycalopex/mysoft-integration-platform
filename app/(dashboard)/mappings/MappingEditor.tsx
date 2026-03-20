@@ -18,6 +18,7 @@ interface Props {
   onSubmit: (formData: FormData) => void;
   pending: boolean;
   error?: string;
+  success?: boolean;
   fieldErrors?: Record<string, string>;
   submitLabel: string;
   showDeleteButton?: boolean;
@@ -39,6 +40,7 @@ export default function MappingEditor({
   onSubmit,
   pending,
   error,
+  success,
   fieldErrors,
   submitLabel,
   showDeleteButton,
@@ -112,6 +114,11 @@ export default function MappingEditor({
 
   return (
     <form onSubmit={handleSubmit}>
+      {success && (
+        <div style={{ background: '#E6F7ED', border: '1px solid #A3D9B1', borderRadius: 6, padding: '10px 14px', fontSize: 13, color: '#1A6B30', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontWeight: 600 }}>Saved.</span> Mapping updated successfully.
+        </div>
+      )}
       {error && (
         <div style={{ background: '#FDE8E6', border: '1px solid #F5C6C2', borderRadius: 6, padding: '10px 14px', fontSize: 13, color: '#9B2B1E', marginBottom: 20 }}>
           {error}

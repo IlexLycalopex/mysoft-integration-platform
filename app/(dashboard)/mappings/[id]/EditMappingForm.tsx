@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useTransition } from 'react';
+import { useActionState, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateMapping, deleteMapping } from '@/lib/actions/mappings';
 import MappingEditor from '../MappingEditor';
@@ -28,6 +28,12 @@ export default function EditMappingForm({
   const [state, action, pending] = useActionState(boundAction, {});
   const [deleting, startDelete] = useTransition();
 
+  // After a successful save, refresh server component data so the page
+  // reflects what was just persisted.
+  useEffect(() => {
+    if (state.success) router.refresh();
+  }, [state.success, router]);
+
   function handleDelete() {
     if (!confirm('Delete this mapping? This cannot be undone.')) return;
     startDelete(async () => {
@@ -46,6 +52,7 @@ export default function EditMappingForm({
       onSubmit={(fd) => action(fd)}
       pending={pending || deleting}
       error={state.error}
+      success={state.success}
       fieldErrors={state.fieldErrors}
       submitLabel="Save changes"
       showDeleteButton

@@ -24,7 +24,7 @@ async function getAuthorisedProfile() {
   return { user, profile };
 }
 
-export type MappingFormState = { error?: string; fieldErrors?: Record<string, string>; mappingId?: string };
+export type MappingFormState = { error?: string; fieldErrors?: Record<string, string>; mappingId?: string; success?: boolean };
 
 export async function createMapping(
   _prev: MappingFormState,
@@ -150,7 +150,7 @@ export async function updateMapping(
 
   revalidatePath('/mappings');
   revalidatePath(`/mappings/${mappingId}`);
-  return {};
+  return { success: true };
 }
 
 export async function cloneMapping(sourceMappingId: string): Promise<{ error?: string; mappingId?: string }> {
