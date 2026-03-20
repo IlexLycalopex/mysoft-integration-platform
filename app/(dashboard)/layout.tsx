@@ -171,7 +171,7 @@ export default async function DashboardLayout({
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Sidebar
           role={emulationCtx ? (emulationCtx.user_role as UserRole) : (profile?.role ?? 'tenant_operator')}
-          branding={{ brand_name: branding.brand_name, logo_url: branding.logo_url, primary_color: branding.primary_color }}
+          branding={{ brand_name: branding.brand_name ?? null, logo_url: branding.logo_url ?? null, primary_color: branding.primary_color ?? 'var(--navy)' }}
         />
         <main style={{ flex: 1, overflowY: 'auto', background: 'var(--bg)' }}>
           {children}
