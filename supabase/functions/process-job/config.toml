@@ -1,0 +1,2 @@
+[functions.process-job]
+verify_jwt = false

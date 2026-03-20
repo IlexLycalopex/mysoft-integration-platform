@@ -1,0 +1,47 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "devCommand": "next dev",
+  "installCommand": "npm install",
+  "regions": ["lhr1"],
+  "crons": [
+    { "path": "/api/cron/health-check", "schedule": "0 7 * * *" },
+    { "path": "/api/cron/sftp-poll", "schedule": "0 5 * * *" },
+    { "path": "/api/cron/retention", "schedule": "0 2 * * *" },
+    { "path": "/api/cron/usage-snapshot", "schedule": "0 1 * * *" },
+    { "path": "/api/cron/subscription-renewal", "schedule": "5 0 1 * *" },
+    { "path": "/api/cron/trial-expiry", "schedule": "0 3 * * *" },
+    { "path": "/api/cron/offboarding", "schedule": "0 4 * * *" }
+  ],
+  "functions": {
+    "app/api/v1/ingest/route.ts": { "maxDuration": 60 },
+    "app/api/v1/push/[token]/route.ts": { "maxDuration": 60 },
+    "app/api/upload/route.ts": { "maxDuration": 60 },
+    "app/api/jobs/[id]/process/route.ts": { "maxDuration": 60 },
+    "app/api/cron/health-check/route.ts": { "maxDuration": 30 },
+    "app/api/cron/sftp-poll/route.ts": { "maxDuration": 60 },
+    "app/api/cron/retention/route.ts": { "maxDuration": 60 },
+    "app/api/cron/usage-snapshot/route.ts": { "maxDuration": 60 },
+    "app/api/cron/subscription-renewal/route.ts": { "maxDuration": 30 },
+    "app/api/cron/trial-expiry/route.ts": { "maxDuration": 30 },
+    "app/api/cron/offboarding/route.ts": { "maxDuration": 60 }
+  },
+  "headers": [
+    {
+      "source": "/api/v1/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Authorization, Content-Type" }
+      ]
+    },
+    {
+      "source": "/api/v1/push/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "POST, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
+      ]
+    }
+  ]
+}

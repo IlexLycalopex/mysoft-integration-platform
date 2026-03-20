@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+:root {
+  /* Shared palette */
+  --navy:         #003D5B;   /* Tenant sidebar default & primary text colour */
+  --navy-lt:      #004d73;
+  --blue:         #00A3E0;   /* Accent: links, active states, CTA buttons */
+  --green:        #00B140;
+  --bg:           #F0F4F7;
+  --surface:      #FFFFFF;
+  --border:       #D8E2EA;
+  --text:         #1A2B38;
+  --muted:        #6B8599;
+  --error:        #D94F3D;
+  --warn:         #E8922A;
+  --tag-bg:       #E6F5FC;
+  --tag-c:        #006B94;
+
+  /* Platform-admin sidebar — deep dark navy, clearly distinct from tenant blue */
+  --platform-nav: #0F1B2D;
+}
+
+body {
+  font-family: var(--font-dm-sans), sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+code, pre, .font-mono {
+  font-family: var(--font-dm-mono), monospace;
+}

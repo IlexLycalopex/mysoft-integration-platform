@@ -1,0 +1,2 @@
+[functions.sftp-poll]
+verify_jwt = false
