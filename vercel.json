@@ -11,13 +11,15 @@
     { "path": "/api/cron/usage-snapshot", "schedule": "0 1 * * *" },
     { "path": "/api/cron/subscription-renewal", "schedule": "5 0 1 * *" },
     { "path": "/api/cron/trial-expiry", "schedule": "0 3 * * *" },
-    { "path": "/api/cron/offboarding", "schedule": "0 4 * * *" }
+    { "path": "/api/cron/offboarding", "schedule": "0 4 * * *" },
+    { "path": "/api/cron/maintenance", "schedule": "0 6 * * *" }
   ],
   "functions": {
     "app/api/v1/ingest/route.ts": { "maxDuration": 60 },
     "app/api/v1/push/[token]/route.ts": { "maxDuration": 60 },
     "app/api/upload/route.ts": { "maxDuration": 60 },
-    "app/api/jobs/[id]/process/route.ts": { "maxDuration": 60 },
+    "app/api/jobs/[id]/process/route.ts": { "maxDuration": 300 },
+    "app/api/cron/maintenance/route.ts": { "maxDuration": 300 },
     "app/api/cron/health-check/route.ts": { "maxDuration": 30 },
     "app/api/cron/sftp-poll/route.ts": { "maxDuration": 60 },
     "app/api/cron/retention/route.ts": { "maxDuration": 60 },

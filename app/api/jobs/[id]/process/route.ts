@@ -1,10 +1,23 @@
+/**
+ * POST /api/jobs/[id]/process
+ *
+ * Triggers orchestrated job processing.
+ * Auth: CRON_SECRET bearer | API key (mip_*) | browser session
+ *
+ * Vercel Hobby: processing runs synchronously within the request lifecycle.
+ * For longer jobs, the caller should use waitUntil() at the edge.
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { processJob } from '@/lib/intacct/processor';
+import { orchestrateJob } from '@/lib/jobs/job-orchestrator';
+import { runWorkerCycle } from '@/lib/workers/job-worker';
 import { validateApiKey } from '@/lib/api-auth';
 import { checkUsageLimits } from '@/lib/actions/usage';
 import type { UserRole } from '@/types/database';
+
+export const maxDuration = 300; // 5-minute Vercel function timeout
 
 export async function POST(
   req: NextRequest,
@@ -14,17 +27,21 @@ export async function POST(
   const admin = createAdminClient();
   const authHeader = req.headers.get('authorization');
 
-  // Allow internal auth — SFTP cron and HTTP push receiver use CRON_SECRET
+  // ── CRON_SECRET auth (internal cron / sftp-poll) ────────────────────────────
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
     const { data: job } = await admin
       .from('upload_jobs')
-      .select('tenant_id')
+      .select('id, tenant_id, status')
       .eq('id', jobId)
-      .single<{ tenant_id: string }>();
+      .single<{ id: string; tenant_id: string; status: string }>();
+
     if (!job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+
     try {
-      const result = await processJob(jobId);
+      const result = await orchestrateJob(jobId);
+      // After processing this job, run a quick worker cycle for any pending retries
+      void runWorkerCycle(3).catch(() => {});
       return NextResponse.json({ success: true, ...result });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Processing failed';
@@ -32,29 +49,28 @@ export async function POST(
     }
   }
 
-  // Allow API key auth (for agent-triggered processing)
+  // ── API key auth (agent-triggered processing) ───────────────────────────────
   if (authHeader?.startsWith('Bearer mip_')) {
     const ctx = await validateApiKey(authHeader);
     if (!ctx) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
 
-    // Verify the job belongs to this tenant
     const { data: job } = await admin
       .from('upload_jobs')
-      .select('tenant_id')
+      .select('id, tenant_id, status')
       .eq('id', jobId)
-      .single<{ tenant_id: string }>();
+      .single<{ id: string; tenant_id: string; status: string }>();
+
     if (!job || job.tenant_id !== ctx.tenantId) {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
 
-    // Usage overage check
     const usageCheck = await checkUsageLimits(job.tenant_id);
     if (!usageCheck.allowed) {
       return NextResponse.json({ error: usageCheck.reason }, { status: 402 });
     }
 
     try {
-      const result = await processJob(jobId);
+      const result = await orchestrateJob(jobId);
       return NextResponse.json({ success: true, ...result });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Processing failed';
@@ -62,7 +78,7 @@ export async function POST(
     }
   }
 
-  // Browser session auth
+  // ── Browser session auth ────────────────────────────────────────────────────
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
@@ -78,37 +94,27 @@ export async function POST(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  // Verify job belongs to this tenant (unless platform admin)
   const isPlatformAdmin = ['platform_super_admin', 'mysoft_support_admin'].includes(profile.role);
+
   if (!isPlatformAdmin) {
     const { data: job } = await admin
       .from('upload_jobs')
-      .select('tenant_id')
+      .select('id, tenant_id')
       .eq('id', jobId)
-      .single<{ tenant_id: string }>();
+      .single<{ id: string; tenant_id: string }>();
+
     if (!job || job.tenant_id !== profile.tenant_id) {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
-  }
 
-  // Usage overage check (only for tenant users, not platform admins)
-  if (!isPlatformAdmin) {
-    const { data: jobForCheck } = await admin
-      .from('upload_jobs')
-      .select('tenant_id')
-      .eq('id', jobId)
-      .single<{ tenant_id: string }>();
-
-    if (jobForCheck) {
-      const usageCheck = await checkUsageLimits(jobForCheck.tenant_id);
-      if (!usageCheck.allowed) {
-        return NextResponse.json({ error: usageCheck.reason }, { status: 402 });
-      }
+    const usageCheck = await checkUsageLimits(job.tenant_id);
+    if (!usageCheck.allowed) {
+      return NextResponse.json({ error: usageCheck.reason }, { status: 402 });
     }
   }
 
   try {
-    const result = await processJob(jobId);
+    const result = await orchestrateJob(jobId);
     return NextResponse.json({ success: true, ...result });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Processing failed';
