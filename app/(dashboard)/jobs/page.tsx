@@ -205,8 +205,20 @@ export default async function JobHistoryPage({ searchParams }: { searchParams: P
         ))}
       </div>
 
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflowX: 'auto' }}>
-        <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse' }} aria-label={`Job History — page ${page}`}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+        <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse' }} aria-label={`Job History — page ${page}`}>
+          <colgroup>
+            {isPlatformAdmin && <col style={{ width: '9%' }} />}  {/* Tenant */}
+            <col style={{ width: isPlatformAdmin ? '18%' : '24%' }} />  {/* File */}
+            <col style={{ width: '7%' }} />   {/* Entity */}
+            <col style={{ width: '9%' }} />   {/* Source */}
+            <col style={{ width: '9%' }} />   {/* Status */}
+            <col style={{ width: '9%' }} />   {/* Progress */}
+            <col style={{ width: '8%' }} />   {/* Intacct Ref */}
+            <col style={{ width: '7%' }} />   {/* Duration */}
+            <col style={{ width: '10%' }} />  {/* Started */}
+            {canProcess && <col style={{ width: isPlatformAdmin ? '14%' : '17%' }} />}  {/* Action */}
+          </colgroup>
           <thead>
             <tr>
               {[...(isPlatformAdmin ? ['Tenant'] : []), 'File', 'Entity', 'Source', 'Status', 'Progress', 'Intacct Ref', 'Duration', 'Started', ...(canProcess ? ['Action'] : [])].map((h) => (
@@ -246,9 +258,9 @@ export default async function JobHistoryPage({ searchParams }: { searchParams: P
                     </td>
                   )}
                   <td style={tdStyle}>
-                    <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--navy)' }}>{job.filename}</div>
+                    <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--navy)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.filename}>{job.filename}</div>
                     {job.error_message && (
-                      <div style={{ fontSize: 11, color: 'var(--error)', marginTop: 2 }}>{job.error_message}</div>
+                      <div style={{ fontSize: 11, color: 'var(--error)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.error_message}</div>
                     )}
                   </td>
                   <td style={tdStyle}>
