@@ -57,7 +57,7 @@ export default function BrandingTemplatesPage() {
   };
 
   return (
-    <div style={{ maxWidth: 1100 }}>
+    <div style={{ padding: 24 }}>
       {/* Page header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>

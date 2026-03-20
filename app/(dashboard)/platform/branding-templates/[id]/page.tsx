@@ -154,7 +154,7 @@ export default function TemplateDetailPage({ params }: { params: { id: string } 
   }
 
   return (
-    <div style={{ maxWidth: 1100 }}>
+    <div style={{ padding: 24 }}>
       {/* Breadcrumb */}
       <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>
         <Link href="/platform/branding-templates" style={{ color: 'var(--muted)', textDecoration: 'none' }}>
