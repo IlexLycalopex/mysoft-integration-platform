@@ -299,3 +299,44 @@ export async function updateBrandingCustomizations(
   revalidatePath(`/platform/tenants/${tenantId}/branding`);
   return { success: true };
 }
+
+/**
+ * Remove a template from a tenant, reverting to direct branding columns
+ */
+export async function clearTenantTemplate(
+  tenantId: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: 'Not authenticated' };
+
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single<{ role: UserRole }>();
+
+  if (!profile || !['platform_super_admin', 'mysoft_support_admin'].includes(profile.role)) {
+    return { success: false, error: 'Insufficient permissions' };
+  }
+
+  const admin = createAdminClient();
+  const { error } = await (admin as any)
+    .from('tenant_branding')
+    .update({
+      template_id: null,
+      template_version: null,
+      custom_branding_data: null,
+      allowed_template_ids: null,
+      applied_by: user.id,
+      applied_at: new Date().toISOString(),
+    })
+    .eq('tenant_id', tenantId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath(`/platform/tenants/${tenantId}/branding`);
+  return { success: true };
+}
