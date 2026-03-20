@@ -1,3 +1,4 @@
+// components/platform/TenantTemplateSection.tsx
 'use client';
 
 import { useState } from 'react';
@@ -37,10 +38,25 @@ export default function TenantTemplateSection({
   const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const hasChanged = selectedId !== (currentTemplate?.id ?? '');
-  const noneOption = '-- none --';
+  const canApply = Boolean(selectedId) && hasChanged && !isSaving;
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '8px 10px',
+    border: '1px solid var(--border)',
+    borderRadius: 6,
+    fontSize: 13,
+    color: 'var(--navy)',
+    background: '#fff',
+    boxSizing: 'border-box' as const,
+    outline: 'none',
+    fontFamily: 'inherit',
+  };
+  const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: 'var(--navy)', marginBottom: 4, display: 'block' };
+  const hintStyle: React.CSSProperties = { fontSize: 11, color: 'var(--muted)', marginTop: 4 };
 
   async function handleApply() {
-    if (!selectedId || selectedId === noneOption) return;
+    if (!selectedId) return;
     setIsSaving(true);
     setStatus(null);
     const result = await applyTemplateToTenant(tenantId, selectedId);
@@ -68,80 +84,76 @@ export default function TenantTemplateSection({
     }
   }
 
-  const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: 'var(--navy)', marginBottom: 4, display: 'block' };
-  const selectStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '8px 10px',
-    border: '1px solid var(--border)',
-    borderRadius: 6,
-    fontSize: 13,
-    color: 'var(--navy)',
-    background: '#fff',
-    boxSizing: 'border-box',
-  };
-
   if (availableTemplates.length === 0) {
     return (
-      <div style={{ padding: '14px 16px', background: '#F7FAFC', border: '1px dashed var(--border)', borderRadius: 6, fontSize: 13, color: 'var(--muted)' }}>
+      <div style={{ padding: '16px 18px', background: '#F7FAFC', border: '1px dashed var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--muted)' }}>
         No published templates available.{' '}
-        <a href="/platform/branding-templates/new" style={{ color: 'var(--blue)' }}>Create and publish a template</a> first.
+        <a href="/platform/branding-templates/new" style={{ color: 'var(--blue)', fontWeight: 600, textDecoration: 'none' }}>
+          Create and publish a template
+        </a>{' '}
+        first.
       </div>
     );
   }
 
   return (
     <div>
-      {/* Current template status */}
-      {currentTemplate && (
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '12px 14px', background: '#EEF6FF', border: '1px solid #A3CFFF', borderRadius: 6, marginBottom: 16 }}>
+      {/* Active template info banner */}
+      {currentTemplate && !confirmRemove && (
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '10px 14px', background: '#EEF6FF', border: '1px solid #A3CFFF', borderRadius: 6, marginBottom: 16 }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#0A4F92' }}>
-              ✓ Active template: {currentTemplate.name}
+              Active template: {currentTemplate.name}
             </div>
             <div style={{ fontSize: 12, color: '#2D6CAF', marginTop: 2 }}>
               v{currentTemplateVersion ?? currentTemplate.version}
-              {currentTemplate.description && ` — ${currentTemplate.description}`}
+              {currentTemplate.description ? ` — ${currentTemplate.description}` : ''}
             </div>
           </div>
-          {!confirmRemove && (
-            <button
-              type="button"
-              onClick={() => setConfirmRemove(true)}
-              style={{ fontSize: 12, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', marginLeft: 12 }}
-            >
-              Remove
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setConfirmRemove(true)}
+            style={{ fontSize: 12, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', marginLeft: 14, padding: 0, flexShrink: 0 }}
+          >
+            Remove
+          </button>
         </div>
       )}
 
       {/* Remove confirmation */}
       {confirmRemove && (
-        <div style={{ padding: '12px 14px', background: '#FFF8E6', border: '1px solid #F5D98C', borderRadius: 6, marginBottom: 16 }}>
-          <p style={{ fontSize: 13, fontWeight: 600, color: '#7A5500', margin: '0 0 8px' }}>
+        <div style={{ padding: '14px 16px', background: '#FFF8E6', border: '1px solid #F5D98C', borderRadius: 8, marginBottom: 16 }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: '#7A5500', margin: '0 0 6px' }}>
             Remove template from this tenant?
           </p>
-          <p style={{ fontSize: 12, color: '#7A5500', margin: '0 0 12px' }}>
+          <p style={{ fontSize: 12, color: '#7A5500', margin: '0 0 14px', lineHeight: 1.5 }}>
             The tenant will fall back to direct branding fields only.
           </p>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" onClick={handleRemove} disabled={isRemoving}
-              style={{ fontSize: 13, fontWeight: 600, padding: '6px 14px', borderRadius: 6, border: 'none', background: '#92620A', color: '#fff', cursor: isRemoving ? 'not-allowed' : 'pointer' }}>
+            <button
+              type="button"
+              onClick={handleRemove}
+              disabled={isRemoving}
+              style={{ padding: '7px 16px', background: isRemoving ? 'var(--muted)' : '#92620A', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: isRemoving ? 'not-allowed' : 'pointer' }}
+            >
               {isRemoving ? 'Removing…' : 'Confirm Remove'}
             </button>
-            <button type="button" onClick={() => setConfirmRemove(false)}
-              style={{ fontSize: 13, padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', background: '#fff', color: 'var(--muted)', cursor: 'pointer' }}>
+            <button
+              type="button"
+              onClick={() => setConfirmRemove(false)}
+              style={{ padding: '7px 14px', background: '#fff', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}
+            >
               Cancel
             </button>
           </div>
         </div>
       )}
 
-      {/* Template selector */}
+      {/* Selector + apply */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
         <div style={{ flex: 1 }}>
           <label style={labelStyle}>{currentTemplate ? 'Switch template' : 'Assign template'}</label>
-          <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)} style={selectStyle}>
+          <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)} style={inputStyle}>
             <option value="">— Select a template —</option>
             {availableTemplates.map((t) => (
               <option key={t.id} value={t.id}>
@@ -153,41 +165,43 @@ export default function TenantTemplateSection({
         <button
           type="button"
           onClick={handleApply}
-          disabled={!selectedId || !hasChanged || isSaving}
+          disabled={!canApply}
           style={{
             padding: '8px 18px',
-            background: (!selectedId || !hasChanged) ? 'var(--border)' : 'var(--blue)',
-            color: (!selectedId || !hasChanged) ? 'var(--muted)' : '#fff',
+            background: canApply ? 'var(--blue)' : 'var(--border)',
+            color: canApply ? '#fff' : 'var(--muted)',
             border: 'none',
             borderRadius: 6,
             fontSize: 13,
             fontWeight: 600,
-            cursor: (!selectedId || !hasChanged || isSaving) ? 'not-allowed' : 'pointer',
+            cursor: canApply ? 'pointer' : 'not-allowed',
             whiteSpace: 'nowrap',
+            flexShrink: 0,
           }}
         >
           {isSaving ? 'Applying…' : currentTemplate ? 'Switch' : 'Apply'}
         </button>
       </div>
 
-      {/* Selected template description */}
-      {selectedId && selectedId !== currentTemplate?.id && (
-        <div style={{ marginTop: 10, fontSize: 12, color: 'var(--muted)' }}>
-          {availableTemplates.find(t => t.id === selectedId)?.description ?? ''}
-        </div>
-      )}
+      {/* Preview description of selected template */}
+      {selectedId && selectedId !== currentTemplate?.id && (() => {
+        const t = availableTemplates.find((t) => t.id === selectedId);
+        return t?.description ? (
+          <p style={hintStyle}>{t.description}</p>
+        ) : null;
+      })()}
 
-      {/* Status */}
+      {/* Status banner */}
       {status && (
-        <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 6, fontSize: 13, background: status.ok ? '#E6F7ED' : '#FDE8E6', border: `1px solid ${status.ok ? '#A3D9B1' : '#F5C6C2'}`, color: status.ok ? '#1A6B30' : '#9B2B1E' }}>
+        <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 6, fontSize: 13, fontWeight: 500, background: status.ok ? '#EDFAF3' : '#FDE8E6', border: `1px solid ${status.ok ? '#A8DFBE' : '#F5C6C2'}`, color: status.ok ? '#1A6B30' : '#9B2B1E' }}>
           {status.msg}
         </div>
       )}
 
       {/* Flexibility note */}
-      <div style={{ marginTop: 14, fontSize: 11, color: 'var(--muted)', borderTop: '1px solid var(--border)', paddingTop: 10 }}>
-        By default the tenant is locked to the assigned template. To allow them to choose from multiple templates, use{' '}
-        <code style={{ fontFamily: 'monospace', fontSize: 10 }}>setTenantAllowedTemplates()</code> via the API or extend this page.
+      <div style={{ marginTop: 14, fontSize: 11, color: 'var(--muted)', borderTop: '1px solid var(--border)', paddingTop: 10, lineHeight: 1.6 }}>
+        By default the tenant is locked to the assigned template. To allow them to choose from multiple templates, configure{' '}
+        <code style={{ fontFamily: 'monospace', fontSize: 10 }}>allowed_template_ids</code> via the API.
       </div>
     </div>
   );

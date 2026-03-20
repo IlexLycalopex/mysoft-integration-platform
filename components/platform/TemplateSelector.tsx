@@ -1,79 +1,73 @@
+// components/platform/TemplateSelector.tsx
 'use client';
 
-import { BrandingTemplate } from '@/lib/types/branding';
-import { useState, useEffect } from 'react';
-import { listBrandingTemplates } from '@/lib/actions/branding-templates';
-
 interface TemplateSelectorProps {
-  allowedTemplateIds?: string[] | null;
-  selectedTemplateId?: string;
-  onSelect: (templateId: string) => void;
-  isLocked: boolean;
+  templates: Array<{ id: string; name: string; version: number; description?: string | null; visibility: string }>;
+  selectedId?: string;
+  onChange: (id: string) => void;
+  locked?: boolean;
 }
 
-export function TemplateSelector({ allowedTemplateIds, selectedTemplateId, onSelect, isLocked }: TemplateSelectorProps) {
-  const [templates, setTemplates] = useState<BrandingTemplate[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export default function TemplateSelector({ templates, selectedId, onChange, locked = false }: TemplateSelectorProps) {
+  const selected = templates.find((t) => t.id === selectedId);
 
-  useEffect(() => {
-    loadTemplates();
-  }, []);
-
-  const loadTemplates = async () => {
-    const result = await listBrandingTemplates({ visibility: 'platform_published' });
-    if (result.success) {
-      setTemplates(result.templates || []);
-    }
-    setIsLoading(false);
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '8px 10px',
+    border: '1px solid var(--border)',
+    borderRadius: 6,
+    fontSize: 13,
+    color: 'var(--navy)',
+    background: '#fff',
+    boxSizing: 'border-box' as const,
+    outline: 'none',
+    fontFamily: 'inherit',
   };
+  const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: 'var(--navy)', marginBottom: 4, display: 'block' };
+  const hintStyle: React.CSSProperties = { fontSize: 11, color: 'var(--muted)', marginTop: 4 };
 
-  const availableTemplates = templates.filter((t) =>
-    !allowedTemplateIds || allowedTemplateIds.length === 0 || allowedTemplateIds.includes(t.id)
-  );
-
-  if (isLocked) {
-    const selected = templates.find((t) => t.id === selectedTemplateId);
+  if (locked) {
     return (
-      <div className="space-y-2">
-        <label className="block text-sm font-medium">Template (Locked)</label>
-        <div className="rounded border border-gray-300 bg-gray-50 p-3 text-sm">
+      <div>
+        <label style={labelStyle}>Active Template</label>
+        <div style={{ padding: '10px 12px', background: '#F7FAFC', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13 }}>
           {selected ? (
             <div>
-              <div className="font-medium">{selected.name}</div>
-              <div className="text-xs text-gray-600">v{selected.version}</div>
+              <span style={{ fontWeight: 600, color: 'var(--navy)' }}>{selected.name}</span>
+              <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>v{selected.version}</span>
+              {selected.description && (
+                <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{selected.description}</p>
+              )}
             </div>
           ) : (
-            <span className="text-gray-600">No template assigned</span>
+            <span style={{ color: 'var(--muted)' }}>No template assigned</span>
           )}
         </div>
-        <p className="text-xs text-gray-600">This tenant is locked to a single template.</p>
+        <p style={hintStyle}>This tenant is locked to a single template. Contact a platform admin to change it.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-2">
-      <label className="block text-sm font-medium">Select Template</label>
-      {isLoading ? (
-        <div className="text-sm text-gray-600">Loading templates...</div>
-      ) : (
-        <select
-          value={selectedTemplateId || ''}
-          onChange={(e) => onSelect(e.target.value)}
-          className="block w-full rounded border border-gray-300 px-3 py-2 text-sm"
-        >
-          <option value="">No template</option>
-          {availableTemplates.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name} (v{t.version})
-            </option>
-          ))}
-        </select>
-      )}
-      <p className="text-xs text-gray-600">
-        {allowedTemplateIds && allowedTemplateIds.length > 0
-          ? 'You can choose from allowed templates.'
-          : 'You can select any published template.'}
+    <div>
+      <label style={labelStyle}>Select Template</label>
+      <select
+        value={selectedId ?? ''}
+        onChange={(e) => onChange(e.target.value)}
+        style={inputStyle}
+      >
+        <option value="">— No template —</option>
+        {templates.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.name} (v{t.version})
+            {t.visibility === 'platform_published' ? ' · Published' : t.visibility === 'shared_with_tenants' ? ' · Shared' : ' · Private'}
+          </option>
+        ))}
+      </select>
+      <p style={hintStyle}>
+        {templates.length === 0
+          ? 'No templates available. Create and publish a template first.'
+          : 'Choose a branding template to apply to this tenant.'}
       </p>
     </div>
   );
