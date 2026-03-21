@@ -59,6 +59,13 @@ export async function createUploadJob(
   const mimeType = (formData.get('mimeType') as string) || null;
   const entityIdOverride = (formData.get('entityIdOverride') as string | null)?.trim() || null;
 
+  // Optional supporting document (attachment)
+  const attachmentStoragePath = (formData.get('attachmentStoragePath') as string | null) || null;
+  const attachmentFilename    = (formData.get('attachmentFilename') as string | null) || null;
+  const attachmentMimeType    = (formData.get('attachmentMimeType') as string | null) || null;
+  const attachmentFileSize    = Number(formData.get('attachmentFileSize') ?? 0) || null;
+  const supdocFolderName      = (formData.get('supdocFolderName') as string | null)?.trim() || 'Mysoft Imports';
+
   if (!storagePath || !filename) return { error: 'Missing file information' };
 
   // Per-user entity restriction — check BEFORE creating the job
@@ -96,7 +103,12 @@ export async function createUploadJob(
       mime_type: mimeType,
       status: 'pending',
       requires_approval: requiresApproval,
-      ...(entityIdOverride ? { entity_id_override: entityIdOverride } : {}),
+      ...(entityIdOverride         ? { entity_id_override: entityIdOverride }                 : {}),
+      ...(attachmentStoragePath    ? { attachment_storage_path: attachmentStoragePath }        : {}),
+      ...(attachmentFilename       ? { attachment_filename: attachmentFilename }               : {}),
+      ...(attachmentMimeType       ? { attachment_mime_type: attachmentMimeType }              : {}),
+      ...(attachmentFileSize       ? { attachment_file_size: attachmentFileSize }              : {}),
+      supdoc_folder_name: supdocFolderName,
     })
     .select('id')
     .single<{ id: string }>();

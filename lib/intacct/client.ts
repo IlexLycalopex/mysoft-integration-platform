@@ -230,6 +230,7 @@ export interface JournalEntry {
   postingDate: string;
   description?: string;
   referenceNo?: string;
+  supdocId?: string;
   lines: JournalEntryLine[];
 }
 
@@ -263,6 +264,7 @@ export async function createJournalEntry(
         <BATCH_DATE>${esc(entry.postingDate)}</BATCH_DATE>
         ${entry.description ? `<BATCH_TITLE>${esc(entry.description)}</BATCH_TITLE>` : ''}
         ${entry.referenceNo ? `<REFERENCENO>${esc(entry.referenceNo)}</REFERENCENO>` : ''}
+        ${entry.supdocId    ? `<SUPDOCID>${esc(entry.supdocId)}</SUPDOCID>` : ''}
         <ENTRIES>
           ${lineXml}
         </ENTRIES>
@@ -289,6 +291,7 @@ export interface ArInvoice {
   description?: string;
   referenceNo?: string;
   currency?: string;
+  supdocId?: string;
   lines: ArInvoiceLine[];
 }
 
@@ -319,6 +322,7 @@ export async function createArInvoice(
         ${invoice.description ? `<DESCRIPTION>${esc(invoice.description)}</DESCRIPTION>` : ''}
         ${invoice.referenceNo ? `<REFERENCENO>${esc(invoice.referenceNo)}</REFERENCENO>` : ''}
         ${invoice.currency    ? `<CURRENCY>${esc(invoice.currency)}</CURRENCY>` : ''}
+        ${invoice.supdocId    ? `<SUPDOCID>${esc(invoice.supdocId)}</SUPDOCID>` : ''}
         <INVOICEITEMS>
           ${lineXml}
         </INVOICEITEMS>
@@ -345,6 +349,7 @@ export interface ApBill {
   description?: string;
   referenceNo?: string;
   currency?: string;
+  supdocId?: string;
   lines: ApBillLine[];
 }
 
@@ -375,6 +380,7 @@ export async function createApBill(
         ${bill.description ? `<DESCRIPTION>${esc(bill.description)}</DESCRIPTION>` : ''}
         ${bill.referenceNo ? `<REFERENCENO>${esc(bill.referenceNo)}</REFERENCENO>` : ''}
         ${bill.currency    ? `<CURRENCY>${esc(bill.currency)}</CURRENCY>` : ''}
+        ${bill.supdocId    ? `<SUPDOCID>${esc(bill.supdocId)}</SUPDOCID>` : ''}
         <APBILLITEMS>
           ${lineXml}
         </APBILLITEMS>
@@ -691,6 +697,87 @@ export async function createCustomer(
         </DISPLAYCONTACT>
       </CUSTOMER>
     </create>`;
+
+  return postXml(buildRequest(creds, controlId, functionXml), controlId);
+}
+
+// ── Supporting documents (supdoc) ────────────────────────────────────────────
+
+/** Maps common MIME types to Intacct attachment type identifiers. */
+const MIME_TO_INTACCT_TYPE: Record<string, string> = {
+  'application/pdf':                                                          'pdf',
+  'image/png':                                                                'png',
+  'image/jpeg':                                                               'jpg',
+  'image/gif':                                                                'gif',
+  'image/tiff':                                                               'tif',
+  'text/plain':                                                               'txt',
+  'application/msword':                                                       'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document':  'docx',
+  'application/vnd.ms-excel':                                                 'xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':        'xlsx',
+};
+
+function mimeToIntacctType(mimeType: string): string {
+  return MIME_TO_INTACCT_TYPE[mimeType.toLowerCase().split(';')[0].trim()] ?? 'pdf';
+}
+
+export interface SupdocFile {
+  /** Original filename (e.g. "vendor_invoice_march.pdf") */
+  filename: string;
+  /** MIME type — used to derive the Intacct attachmenttype */
+  mimeType: string;
+  /** Base64-encoded file content */
+  data: string;
+}
+
+export interface CreateSupdocParams {
+  /** Optional explicit SUPDOCID. If omitted, Intacct auto-assigns one. */
+  supdocid?: string;
+  /** Intacct attachment folder (must exist or be auto-created). */
+  supdocfoldername: string;
+  /** Human-readable description stored on the supdoc record. */
+  description?: string;
+  /** One or more files in this attachment bundle. */
+  files: SupdocFile[];
+}
+
+/**
+ * Create a supporting document record (supdoc) in Intacct via the XML API.
+ *
+ * The returned `recordNo` contains the SUPDOCID assigned by Intacct.
+ * Pass this value as `supdocId` when creating APBILL, ARINVOICE, or GLBATCH
+ * to link the attachment to the transaction.
+ *
+ * Notes:
+ * - File content must be base64-encoded; this function accepts raw binary blobs
+ *   via the `files[].data` field (must already be base64).
+ * - Intacct does not allow modifying attachment file content after creation.
+ *   To replace a file, delete and recreate the supdoc.
+ * - The folder must exist in Intacct (created automatically by Intacct if it
+ *   doesn't exist when you first create a supdoc in that folder name).
+ */
+export async function createSupdoc(
+  creds: IntacctCredentials,
+  params: CreateSupdocParams
+): Promise<IntacctResponse> {
+  const controlId = crypto.randomUUID();
+
+  const filesXml = params.files.map((f) => `
+    <attachment>
+      <attachmentname>${esc(f.filename.replace(/\.[^.]+$/, ''))}</attachmentname>
+      <attachmenttype>${esc(mimeToIntacctType(f.mimeType))}</attachmenttype>
+      <attachmentdata>${f.data}</attachmentdata>
+    </attachment>`).join('');
+
+  const functionXml = `
+    <create_supdoc>
+      ${params.supdocid       ? `<supdocid>${esc(params.supdocid)}</supdocid>` : ''}
+      <supdocfoldername>${esc(params.supdocfoldername)}</supdocfoldername>
+      ${params.description    ? `<supdocdescription>${esc(params.description)}</supdocdescription>` : ''}
+      <attachments>
+        ${filesXml}
+      </attachments>
+    </create_supdoc>`;
 
   return postXml(buildRequest(creds, controlId, functionXml), controlId);
 }

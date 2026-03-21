@@ -7,7 +7,9 @@ import { createUploadJob } from '@/lib/actions/uploads';
 import EntityIdSelect from '@/components/entity/EntityIdSelect';
 
 const ACCEPTED = '.csv,.xls,.xlsx';
+const ATTACHMENT_ACCEPTED = '.pdf,.png,.jpg,.jpeg,.gif,.tif,.tiff,.doc,.docx,.xls,.xlsx,.txt';
 const MAX_BYTES = 50 * 1024 * 1024; // 50 MB
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; // 10 MB
 
 type UploadState = 'idle' | 'selected' | 'validating' | 'validated' | 'uploading' | 'creating' | 'done' | 'error';
 
@@ -50,6 +52,12 @@ export default function FileUploader({ tenantId, mappings }: Props) {
   const [, startTransition] = useTransition();
   const [quotaInfo, setQuotaInfo] = useState<{ rowsUsed: number; rowLimit: number | null } | null>(null);
 
+  // Supporting document state
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [supdocFolderName, setSupdocFolderName] = useState('Mysoft Imports');
+
   function pickFile(file: File) {
     setErrorMsg(null);
     setValidationResult(null);
@@ -77,7 +85,20 @@ export default function FileUploader({ tenantId, mappings }: Props) {
     setEntityIdOverride('');
     setErrorMsg(null);
     setUploadState('idle');
+    setAttachmentFile(null);
+    setAttachmentError(null);
+    setSupdocFolderName('Mysoft Imports');
     if (inputRef.current) inputRef.current.value = '';
+    if (attachmentInputRef.current) attachmentInputRef.current.value = '';
+  }
+
+  function pickAttachment(file: File) {
+    setAttachmentError(null);
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      setAttachmentError('Attachment too large. Maximum size is 10 MB.');
+      return;
+    }
+    setAttachmentFile(file);
   }
 
   async function handleValidate() {
@@ -135,6 +156,21 @@ export default function FileUploader({ tenantId, mappings }: Props) {
       return;
     }
 
+    // Upload supporting document if selected
+    let attachmentStoragePath: string | null = null;
+    if (attachmentFile) {
+      const attachPath = `${tenantId}/${jobId}/attachments/${attachmentFile.name}`;
+      const { error: attachErr } = await supabase.storage
+        .from('uploads')
+        .upload(attachPath, attachmentFile, { cacheControl: '3600', upsert: false });
+      if (attachErr) {
+        setUploadState('error');
+        setErrorMsg(`Attachment upload failed: ${attachErr.message}`);
+        return;
+      }
+      attachmentStoragePath = attachPath;
+    }
+
     setProgress(100);
     setUploadState('creating');
 
@@ -146,6 +182,13 @@ export default function FileUploader({ tenantId, mappings }: Props) {
     fd.append('mappingId', selectedMappingId);
     if (dryRun) fd.append('dryRun', 'true');
     if (entityIdOverride.trim()) fd.append('entityIdOverride', entityIdOverride.trim());
+    if (attachmentStoragePath && attachmentFile) {
+      fd.append('attachmentStoragePath', attachmentStoragePath);
+      fd.append('attachmentFilename', attachmentFile.name);
+      fd.append('attachmentMimeType', attachmentFile.type || 'application/octet-stream');
+      fd.append('attachmentFileSize', String(attachmentFile.size));
+      fd.append('supdocFolderName', supdocFolderName.trim() || 'Mysoft Imports');
+    }
 
     startTransition(async () => {
       const result = await createUploadJob(undefined as never, fd);
@@ -310,6 +353,65 @@ export default function FileUploader({ tenantId, mappings }: Props) {
               value={entityIdOverride}
               onChange={setEntityIdOverride}
             />
+          </div>
+
+          {/* Supporting document (optional) */}
+          <div style={{ marginBottom: 14, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--navy)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+              Supporting Document <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--muted)', textTransform: 'none' }}>(optional)</span>
+            </label>
+            <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 8px' }}>
+              Attach a PDF, image, or document to link to every transaction in this import as an Intacct supporting document.
+            </p>
+
+            {attachmentFile ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#F0F4F8', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                </svg>
+                <span style={{ fontSize: 12, color: 'var(--navy)', flex: 1 }}>{attachmentFile.name} <span style={{ color: 'var(--muted)' }}>({formatBytes(attachmentFile.size)})</span></span>
+                <button onClick={() => { setAttachmentFile(null); if (attachmentInputRef.current) attachmentInputRef.current.value = ''; }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 16, padding: '0 4px', lineHeight: 1 }}>✕</button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => attachmentInputRef.current?.click()}
+                style={{ fontSize: 12, color: 'var(--blue)', border: '1px dashed var(--border)', borderRadius: 6, padding: '7px 14px', background: 'transparent', cursor: 'pointer' }}
+              >
+                + Attach a supporting document
+              </button>
+            )}
+            <input
+              ref={attachmentInputRef}
+              type="file"
+              accept={ATTACHMENT_ACCEPTED}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) pickAttachment(f); e.target.value = ''; }}
+              style={{ display: 'none' }}
+            />
+
+            {attachmentError && (
+              <p style={{ fontSize: 12, color: '#DC2626', margin: '4px 0 0' }}>{attachmentError}</p>
+            )}
+
+            {/* Intacct folder name */}
+            {attachmentFile && (
+              <div style={{ marginTop: 10 }}>
+                <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--navy)', display: 'block', marginBottom: 4 }}>
+                  Intacct Folder
+                </label>
+                <input
+                  type="text"
+                  value={supdocFolderName}
+                  onChange={(e) => setSupdocFolderName(e.target.value)}
+                  placeholder="Mysoft Imports"
+                  style={{ padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, width: '100%', maxWidth: 260, boxSizing: 'border-box' }}
+                />
+                <p style={{ fontSize: 11, color: 'var(--muted)', margin: '3px 0 0' }}>
+                  The Intacct attachment folder where the supdoc will be stored.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Validate button */}

@@ -12,6 +12,7 @@ import {
   createJournalEntry, createArInvoice, createApBill,
   createArPayment, createApPayment, createExpenseReport,
   createTimesheet, createVendor, createCustomer,
+  createSupdoc,
 } from '@/lib/intacct/client';
 import type { IntacctCredentials } from '@/lib/intacct/types';
 import type { ColumnMappingEntry } from '@/types/database';
@@ -56,7 +57,7 @@ export async function processJob(jobId: string): Promise<ProcessResult> {
   // 1 — fetch the job record
   const { data: job, error: jobErr } = await admin
     .from('upload_jobs')
-    .select('id, tenant_id, storage_path, mapping_id, status, dry_run, requires_approval, approved_at, entity_id_override, watcher_config_id')
+    .select('id, tenant_id, storage_path, mapping_id, status, dry_run, requires_approval, approved_at, entity_id_override, watcher_config_id, attachment_storage_path, attachment_filename, attachment_mime_type, supdoc_folder_name')
     .eq('id', jobId)
     .single<{
       id: string;
@@ -69,6 +70,10 @@ export async function processJob(jobId: string): Promise<ProcessResult> {
       approved_at: string | null;
       entity_id_override: string | null;
       watcher_config_id: string | null;
+      attachment_storage_path: string | null;
+      attachment_filename: string | null;
+      attachment_mime_type: string | null;
+      supdoc_folder_name: string | null;
     }>();
 
   if (jobErr || !job) throw new Error(`Job ${jobId} not found`);
@@ -114,7 +119,12 @@ export async function processJob(jobId: string): Promise<ProcessResult> {
   await admin.from('upload_jobs').update({ status: 'processing', started_at: new Date().toISOString() }).eq('id', jobId);
 
   try {
-    const result = await runJob(admin, job.id, job.tenant_id, job.storage_path, job.mapping_id, job.dry_run, jobEntityOverride);
+    const result = await runJob(admin, job.id, job.tenant_id, job.storage_path, job.mapping_id, job.dry_run, jobEntityOverride, {
+      attachmentStoragePath: job.attachment_storage_path ?? undefined,
+      attachmentFilename: job.attachment_filename ?? undefined,
+      attachmentMimeType: job.attachment_mime_type ?? undefined,
+      supdocFolderName: job.supdoc_folder_name ?? 'Mysoft Imports',
+    });
 
     const finalStatus = result.errors > 0 ? 'completed_with_errors' : 'completed';
     await admin.from('upload_jobs').update({
@@ -175,6 +185,13 @@ export async function processJob(jobId: string): Promise<ProcessResult> {
   }
 }
 
+interface AttachmentParams {
+  attachmentStoragePath?: string;
+  attachmentFilename?: string;
+  attachmentMimeType?: string;
+  supdocFolderName?: string;
+}
+
 async function runJob(
   admin: ReturnType<typeof createAdminClient>,
   jobId: string,
@@ -182,7 +199,8 @@ async function runJob(
   storagePath: string,
   mappingId: string | null,
   dryRun = false,
-  entityIdOverride: string | null = null
+  entityIdOverride: string | null = null,
+  attachment: AttachmentParams = {}
 ): Promise<ProcessResult> {
   const log: ProcessingLogEntry[] = [];
 
@@ -217,6 +235,75 @@ async function runJob(
     senderIdSource: creds.senderId ? 'configured' : 'missing',
     dateLocale,
   });
+
+  // 3b — create supdoc in Intacct if an attachment was provided
+  let resolvedSupdocId: string | undefined;
+
+  if (attachment.attachmentStoragePath && !dryRun) {
+    logEntry(log, 'info', 'Downloading supporting document from storage…', {
+      attachmentPath: attachment.attachmentStoragePath,
+      filename: attachment.attachmentFilename,
+    });
+    try {
+      const { data: attachBlob, error: attachErr } = await admin.storage
+        .from('uploads')
+        .download(attachment.attachmentStoragePath);
+
+      if (attachErr || !attachBlob) {
+        logEntry(log, 'warn', `Could not download attachment: ${attachErr?.message ?? 'unknown'}. Proceeding without SUPDOCID.`);
+      } else {
+        const buffer = Buffer.from(await attachBlob.arrayBuffer());
+        const base64Data = buffer.toString('base64');
+
+        const folderName = attachment.supdocFolderName ?? 'Mysoft Imports';
+        const filename = attachment.attachmentFilename ?? 'attachment';
+        const mimeType = attachment.attachmentMimeType ?? 'application/pdf';
+
+        logEntry(log, 'info', 'Creating supdoc in Intacct…', { folder: folderName, filename, mimeType });
+
+        const supdocResult = await createSupdoc(creds, {
+          supdocfoldername: folderName,
+          description: `Imported via Mysoft Integration Platform — Job ${jobId}`,
+          files: [{ filename, mimeType, data: base64Data }],
+        });
+
+        if (!supdocResult.success) {
+          const err = supdocResult.errors?.[0];
+          const errMsg = err
+            ? `${err.errorno}: ${err.description}${err.description2 ? ' — ' + err.description2 : ''}`
+            : 'Unknown error';
+          logEntry(log, 'warn', `Supdoc creation failed: ${errMsg}. Proceeding without SUPDOCID.`, {
+            errors: supdocResult.errors,
+            rawXml: supdocResult.rawXml,
+          });
+        } else {
+          // Intacct returns the supdocid in <key> on the result, or we fall back to a
+          // supdocid we specified. Extract from recordNo (populated by postXml).
+          resolvedSupdocId = supdocResult.recordNo ?? supdocResult.rawResult?.['key'] as string | undefined;
+          if (!resolvedSupdocId && supdocResult.data?.[0]) {
+            // Some Intacct versions return the id inside the data object
+            const d = supdocResult.data[0];
+            resolvedSupdocId = (d['supdocid'] ?? d['SUPDOCID']) as string | undefined;
+          }
+
+          if (resolvedSupdocId) {
+            logEntry(log, 'success', `Supdoc created in Intacct`, { supdocId: resolvedSupdocId, folder: folderName, filename });
+            // Persist SUPDOCID to the job record for audit trail
+            await (admin as any).from('upload_jobs').update({ supdoc_id: resolvedSupdocId }).eq('id', jobId);
+          } else {
+            logEntry(log, 'warn', 'Supdoc creation appeared successful but no SUPDOCID was returned. Transactions will be posted without SUPDOCID.', {
+              rawResult: supdocResult.rawResult,
+            });
+          }
+        }
+      }
+    } catch (attachEx: unknown) {
+      const msg = attachEx instanceof Error ? attachEx.message : String(attachEx);
+      logEntry(log, 'warn', `Supdoc creation threw an exception: ${msg}. Proceeding without SUPDOCID.`);
+    }
+  } else if (attachment.attachmentStoragePath && dryRun) {
+    logEntry(log, 'info', '[DRY RUN] Attachment present — supdoc creation skipped (dry run)');
+  }
 
   // 4 — load mapping
   if (!mappingId) {
@@ -261,7 +348,7 @@ async function runJob(
   if (mapping.transaction_type === 'journal_entry') {
     // Group rows into balanced GLBATCHes by JOURNALID + date + description
     const { recordNos, rowErrors, processedCount, groupLog } = await submitGroupedJournalEntries(
-      creds, mapping.column_mappings, rows, dateLocale, dryRun
+      creds, mapping.column_mappings, rows, dateLocale, dryRun, resolvedSupdocId
     );
     allRecordNos.push(...recordNos);
     processed = processedCount;
@@ -290,7 +377,7 @@ async function runJob(
           processed++;
           logEntry(log, 'info', `[DRY RUN] Would submit row ${rowNum} to Intacct (skipped)`, { rowNum, transactionType: mapping.transaction_type });
         } else {
-          const recordNo = await submitRow(creds, mapping.transaction_type, mapping.column_mappings, row, dateLocale);
+          const recordNo = await submitRow(creds, mapping.transaction_type, mapping.column_mappings, row, dateLocale, resolvedSupdocId);
           if (recordNo) {
             allRecordNos.push(recordNo);
             logEntry(log, 'success', `Row ${rowNum} submitted`, { rowNum, recordNo });
@@ -344,7 +431,8 @@ async function submitGroupedJournalEntries(
   columnMappings: (ColumnMappingEntry | ColumnMappingEntryV2)[],
   rows: RawRow[],
   dateLocale: 'uk' | 'us' = 'uk',
-  dryRun = false
+  dryRun = false,
+  supdocId?: string
 ): Promise<{ recordNos: string[]; rowErrors: RowError[]; processedCount: number; groupLog: ProcessingLogEntry[] }> {
   const rowErrors: RowError[] = [];
   const recordNos: string[] = [];
@@ -460,6 +548,7 @@ async function submitGroupedJournalEntries(
         postingDate,
         description,
         referenceNo: first['REFERENCENO'],
+        supdocId:    supdocId ?? first['SUPDOCID'],
         lines,
       });
 
@@ -575,12 +664,13 @@ async function submitRow(
   txType: string,
   columnMappings: (ColumnMappingEntry | ColumnMappingEntryV2)[],
   row: RawRow,
-  dateLocale: 'uk' | 'us' = 'uk'
+  dateLocale: 'uk' | 'us' = 'uk',
+  supdocId?: string
 ): Promise<string | undefined> {
   if (txType === 'ar_invoice') {
-    return submitArInvoice(creds, columnMappings, row, dateLocale);
+    return submitArInvoice(creds, columnMappings, row, dateLocale, supdocId);
   } else if (txType === 'ap_bill') {
-    return submitApBill(creds, columnMappings, row, dateLocale);
+    return submitApBill(creds, columnMappings, row, dateLocale, supdocId);
   } else if (txType === 'ar_payment') {
     return submitArPayment(creds, columnMappings, row, dateLocale);
   } else if (txType === 'ap_payment') {
@@ -611,7 +701,8 @@ async function submitArInvoice(
   creds: IntacctCredentials,
   columnMappings: (ColumnMappingEntry | ColumnMappingEntryV2)[],
   row: RawRow,
-  dateLocale: 'uk' | 'us'
+  dateLocale: 'uk' | 'us',
+  supdocId?: string
 ): Promise<string | undefined> {
   const mapped = mapRow(columnMappings, row, dateLocale);
 
@@ -637,6 +728,7 @@ async function submitArInvoice(
     description:  mapped['DESCRIPTION'],
     referenceNo:  mapped['REFERENCENO'],
     currency:     mapped['CURRENCY'],
+    supdocId:     supdocId ?? mapped['SUPDOCID'],
     lines: [line],
   });
 
@@ -651,7 +743,8 @@ async function submitApBill(
   creds: IntacctCredentials,
   columnMappings: (ColumnMappingEntry | ColumnMappingEntryV2)[],
   row: RawRow,
-  dateLocale: 'uk' | 'us'
+  dateLocale: 'uk' | 'us',
+  supdocId?: string
 ): Promise<string | undefined> {
   const mapped = mapRow(columnMappings, row, dateLocale);
 
@@ -677,6 +770,7 @@ async function submitApBill(
     description: mapped['DESCRIPTION'],
     referenceNo: mapped['REFERENCENO'],
     currency:    mapped['CURRENCY'],
+    supdocId:    supdocId ?? mapped['SUPDOCID'],
     lines: [line],
   });
 
