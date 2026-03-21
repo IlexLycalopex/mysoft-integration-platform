@@ -36,6 +36,8 @@ export default function Topbar({
   const pathname = usePathname();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   // Inject favicon dynamically if branding provides one
   useEffect(() => {
@@ -51,7 +53,7 @@ export default function Topbar({
     }
   }, [branding?.favicon_url]);
 
-  // Close dropdown on outside click
+  // Close env dropdown on outside click
   useEffect(() => {
     if (!dropdownOpen) return;
     function handler(e: MouseEvent) {
@@ -62,6 +64,18 @@ export default function Topbar({
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [dropdownOpen]);
+
+  // Close user menu on outside click
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    function handler(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [userMenuOpen]);
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -245,27 +259,83 @@ export default function Topbar({
           </svg>
         </div>
 
-        {/* Avatar / sign out */}
-        <button
-          onClick={handleSignOut}
-          title={`Sign out (${userEmail})`}
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: '50%',
-            background: 'var(--blue)',
-            color: '#fff',
-            fontSize: 12,
-            fontWeight: 600,
-            border: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {initials}
-        </button>
+        {/* Avatar / user menu */}
+        <div ref={userMenuRef} style={{ position: 'relative' }}>
+          <button
+            onClick={() => setUserMenuOpen((o) => !o)}
+            title={userEmail}
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: '50%',
+              background: 'var(--blue)',
+              color: '#fff',
+              fontSize: 12,
+              fontWeight: 600,
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {initials}
+          </button>
+
+          {userMenuOpen && (
+            <div style={{
+              position: 'absolute',
+              top: 'calc(100% + 8px)',
+              right: 0,
+              background: '#fff',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+              minWidth: 200,
+              zIndex: 100,
+              overflow: 'hidden',
+            }}>
+              {/* User identity */}
+              <div style={{
+                padding: '10px 14px',
+                borderBottom: '1px solid #EEF2F5',
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 2 }}>
+                  Signed in as
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--navy)', fontWeight: 500, wordBreak: 'break-all' }}>
+                  {userEmail}
+                </div>
+              </div>
+
+              {/* Sign out */}
+              <button
+                onClick={() => { setUserMenuOpen(false); handleSignOut(); }}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '10px 14px',
+                  background: 'transparent',
+                  border: 'none',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  color: '#DC2626',
+                  fontWeight: 500,
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                Sign out
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );
