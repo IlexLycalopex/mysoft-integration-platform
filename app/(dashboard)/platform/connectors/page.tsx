@@ -215,7 +215,7 @@ function ConnectorCard({
             Preview schema
           </Link>
         )}
-        {canEdit && !c.is_system && (
+        {canEdit && (
           <Link href={`/platform/connectors/${c.id}`} style={{
             fontSize: 12, fontWeight: 500, color: 'var(--muted)',
             padding: '6px 12px', borderRadius: 5, border: '1px solid var(--border)',
