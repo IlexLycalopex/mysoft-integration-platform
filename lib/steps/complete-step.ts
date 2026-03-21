@@ -93,11 +93,14 @@ async function notifyUser(
     }
 
     // Fire webhooks (non-blocking)
-    const webhookEvent = errors > 0 && processed === 0 ? 'job.failed' : 'job.completed';
+    const webhookEvent =
+      errors > 0 && processed === 0  ? 'job.failed'
+      : errors > 0                   ? 'job.partially_completed'
+      : 'job.completed';
     dispatchWebhooks(job.tenant_id, webhookEvent, {
       jobId:          job.id,
       tenantId:       job.tenant_id,
-      status:         errors > 0 ? 'partially_completed' : 'completed',
+      status:         webhookEvent === 'job.failed' ? 'failed' : webhookEvent === 'job.partially_completed' ? 'partially_completed' : 'completed',
       recordNos:      [],
       filename,
       processedCount: processed,
