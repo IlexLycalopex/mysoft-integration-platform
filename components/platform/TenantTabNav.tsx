@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 interface Props {
   tenantId: string;
-  active: 'details' | 'usage' | 'subscription' | 'branding';
+  active: 'details' | 'usage' | 'subscription' | 'branding' | 'connectors';
 }
 
 const TABS = [
@@ -10,6 +10,7 @@ const TABS = [
   { key: 'usage',        label: 'Usage',        path: '/usage' },
   { key: 'subscription', label: 'Subscription', path: '/subscription' },
   { key: 'branding',     label: 'Branding',     path: '/branding' },
+  { key: 'connectors',   label: 'Connectors',   path: '/connectors' },
 ] as const;
 
 export default function TenantTabNav({ tenantId, active }: Props) {

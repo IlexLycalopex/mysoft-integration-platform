@@ -51,14 +51,23 @@ export default async function BillingReportPage() {
 
   const admin = createAdminClient();
 
-  const [{ data: rawSubs }, { data: rawTenants }] = await Promise.all([
+  const [{ data: rawSubs }, { data: rawTenants }, { data: rawConnectorLicences }] = await Promise.all([
     admin.from('active_subscriptions').select('*'),
     admin.from('tenants').select('id, name, is_sandbox'),
+    (admin as any).from('tenant_connector_licences').select('tenant_id, is_enabled, price_gbp_monthly').eq('is_enabled', true),
   ]);
 
   const subs = (rawSubs ?? []) as ActiveSubRow[];
   const tenants = (rawTenants ?? []) as TenantRow[];
   const tenantMap = Object.fromEntries(tenants.map((t) => [t.id, t]));
+
+  // Build per-tenant connector MRR
+  const connectorMrrByTenant = new Map<string, number>();
+  for (const row of (rawConnectorLicences ?? []) as { tenant_id: string; is_enabled: boolean; price_gbp_monthly: number | null }[]) {
+    if (!row.price_gbp_monthly || row.price_gbp_monthly <= 0) continue;
+    const existing = connectorMrrByTenant.get(row.tenant_id) ?? 0;
+    connectorMrrByTenant.set(row.tenant_id, existing + row.price_gbp_monthly);
+  }
 
   // Filter to production tenants with active status
   const activeSubs = subs.filter((s) => {
@@ -66,11 +75,18 @@ export default async function BillingReportPage() {
     return t && !t.is_sandbox && s.status === 'active';
   });
 
-  // MRR computation
-  const totalMrr = activeSubs.reduce((sum, s) => {
+  // Plan MRR computation
+  const planMrr = activeSubs.reduce((sum, s) => {
     if (s.is_free_of_charge) return sum;
     return sum + (s.effective_price_gbp ?? s.plan_price_gbp ?? 0);
   }, 0);
+
+  // Total connector MRR (production tenants only)
+  const totalConnectorMrr = [...connectorMrrByTenant.entries()]
+    .filter(([tenantId]) => !tenantMap[tenantId]?.is_sandbox)
+    .reduce((sum, [, mrr]) => sum + mrr, 0);
+
+  const totalMrr = planMrr + totalConnectorMrr;
   const totalArr = totalMrr * 12;
 
   // Group MRR by plan
@@ -142,11 +158,16 @@ export default async function BillingReportPage() {
       </div>
 
       {/* MRR summary cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16, marginBottom: 24 }}>
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '18px 20px' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8 }}>Monthly MRR</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8 }}>Total MRR</div>
           <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--navy)', lineHeight: 1 }}>{formatGbp(totalMrr)}</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>Recognised this month</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>Plans + connectors</div>
+        </div>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '18px 20px' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8 }}>Connector MRR</div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--navy)', lineHeight: 1 }}>{formatGbp(totalConnectorMrr)}</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>Paid connector licences</div>
         </div>
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '18px 20px' }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8 }}>ARR Run Rate</div>
@@ -174,9 +195,9 @@ export default async function BillingReportPage() {
               <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>{p.planName}</div>
               <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--navy)' }}>{formatGbp(p.mrr)}</div>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{p.count} tenant{p.count !== 1 ? 's' : ''}</div>
-              {totalMrr > 0 && (
+              {planMrr > 0 && (
                 <div style={{ height: 4, background: '#EEF2F5', borderRadius: 2, marginTop: 8, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${Math.round((p.mrr / totalMrr) * 100)}%`, background: 'var(--blue)', borderRadius: 2 }} />
+                  <div style={{ height: '100%', width: `${Math.round((p.mrr / planMrr) * 100)}%`, background: 'var(--blue)', borderRadius: 2 }} />
                 </div>
               )}
             </div>
@@ -202,7 +223,7 @@ export default async function BillingReportPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                {['Tenant', 'Plan', 'List Price', 'Discount', 'Effective /mo', 'Period End', 'Committed?', ''].map((h, i) => (
+                {['Tenant', 'Plan', 'List Price', 'Discount', 'Plan /mo', 'Connectors /mo', 'Total /mo', 'Period End', ''].map((h, i) => (
                   <th key={i} style={thStyle}>{h}</th>
                 ))}
               </tr>
@@ -210,7 +231,9 @@ export default async function BillingReportPage() {
             <tbody>
               {sortedSubs.map((s) => {
                 const tenant = tenantMap[s.tenant_id];
-                const effectivePrice = s.is_free_of_charge ? 0 : (s.effective_price_gbp ?? s.plan_price_gbp ?? 0);
+                const planPrice = s.is_free_of_charge ? 0 : (s.effective_price_gbp ?? s.plan_price_gbp ?? 0);
+                const cMrr = connectorMrrByTenant.get(s.tenant_id) ?? 0;
+                const rowTotal = planPrice + cMrr;
                 return (
                   <tr key={s.tenant_id}>
                     <td style={tdStyle}>
@@ -240,23 +263,24 @@ export default async function BillingReportPage() {
                       </span>
                     </td>
                     <td style={tdStyle}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: effectivePrice > 0 ? 'var(--navy)' : '#1A6B30' }}>
+                      <span style={{ fontSize: 12, fontWeight: 500, color: planPrice > 0 ? 'var(--navy)' : '#1A6B30' }}>
                         {s.is_free_of_charge ? (
                           <span style={{ fontSize: 11, fontWeight: 600, color: '#1A6B30', background: '#EDFAF3', border: '1px solid #A8DFBE', borderRadius: 4, padding: '2px 7px' }}>Free</span>
-                        ) : formatGbp(effectivePrice)}
+                        ) : formatGbp(planPrice)}
+                      </span>
+                    </td>
+                    <td style={tdStyle}>
+                      <span style={{ fontSize: 12, color: cMrr > 0 ? 'var(--navy)' : 'var(--muted)' }}>
+                        {cMrr > 0 ? formatGbp(cMrr) : '—'}
+                      </span>
+                    </td>
+                    <td style={tdStyle}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>
+                        {formatGbp(rowTotal)}
                       </span>
                     </td>
                     <td style={tdStyle}>
                       <span style={{ fontSize: 12, color: 'var(--muted)' }}>{formatDate(s.period_end)}</span>
-                    </td>
-                    <td style={tdStyle}>
-                      {s.in_minimum_period ? (
-                        <span style={{ fontSize: 11, fontWeight: 600, color: '#92620A', background: '#FFF8E6', border: '1px solid #F5D98C', borderRadius: 4, padding: '2px 7px' }}>
-                          Until {formatDate(s.commitment_end_date)}
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>Rolling</span>
-                      )}
                     </td>
                     <td style={{ ...tdStyle, textAlign: 'right' }}>
                       <Link
@@ -276,10 +300,16 @@ export default async function BillingReportPage() {
                 <td colSpan={4} style={{ ...tdStyle, fontWeight: 600, fontSize: 12, color: 'var(--navy)', borderTop: '2px solid var(--border)' }}>
                   Total MRR
                 </td>
+                <td style={{ ...tdStyle, fontWeight: 500, fontSize: 13, color: 'var(--muted)', borderTop: '2px solid var(--border)' }}>
+                  {formatGbp(planMrr)}
+                </td>
+                <td style={{ ...tdStyle, fontWeight: 500, fontSize: 13, color: 'var(--muted)', borderTop: '2px solid var(--border)' }}>
+                  {formatGbp(totalConnectorMrr)}
+                </td>
                 <td style={{ ...tdStyle, fontWeight: 700, fontSize: 14, color: 'var(--navy)', borderTop: '2px solid var(--border)' }}>
                   {formatGbp(totalMrr)}
                 </td>
-                <td colSpan={3} style={{ ...tdStyle, borderTop: '2px solid var(--border)' }}>
+                <td colSpan={2} style={{ ...tdStyle, borderTop: '2px solid var(--border)' }}>
                   <span style={{ fontSize: 11, color: 'var(--muted)' }}>ARR: {formatGbp(totalArr)}</span>
                 </td>
               </tr>

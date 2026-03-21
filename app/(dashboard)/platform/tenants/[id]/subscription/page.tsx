@@ -12,6 +12,8 @@ import {
   cancelUpcomingSubscription,
 } from '@/lib/actions/subscriptions';
 import { listAllPlans } from '@/lib/actions/plans';
+import { getTenantConnectorLicences } from '@/lib/actions/connector-licences';
+import type { ConnectorLicenceRow } from '@/lib/actions/connector-licences';
 import SubscriptionForm from './SubscriptionForm';
 import CancelSubscriptionButton from './CancelSubscriptionButton';
 import CancelUpcomingButton from './CancelUpcomingButton';
@@ -77,12 +79,17 @@ export default async function SubscriptionPage({ params }: { params: Promise<{ i
 
   if (!tenant) notFound();
 
-  const [activeSub, upcomingSub, history, plans] = await Promise.all([
+  const [activeSub, upcomingSub, history, plans, connectorLicences] = await Promise.all([
     getActiveSubscription(id),
     getUpcomingSubscription(id),
     getSubscriptionHistory(id),
     listAllPlans(),
+    getTenantConnectorLicences(id),
   ]);
+
+  const connectorMrr = connectorLicences
+    .filter((l) => l.is_enabled && l.price_gbp_monthly != null && l.price_gbp_monthly > 0)
+    .reduce((sum, l) => sum + (l.price_gbp_monthly ?? 0), 0);
 
   // Bound server actions
   const boundCreate = createOrChangeSubscription.bind(null, id);
@@ -241,6 +248,82 @@ export default async function SubscriptionPage({ params }: { params: Promise<{ i
           />
         </div>
       )}
+
+      {/* Connector Licences summary */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', marginBottom: 24 }}>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', background: '#F7FAFC', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)', margin: 0 }}>
+              Connector Licences
+              <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--muted)', marginLeft: 8 }}>
+                {connectorLicences.filter((l) => l.is_enabled).length} active
+              </span>
+            </h2>
+          </div>
+          <Link
+            href={`/platform/tenants/${id}/connectors`}
+            style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', textDecoration: 'none' }}
+          >
+            Manage connectors →
+          </Link>
+        </div>
+
+        {connectorLicences.length === 0 ? (
+          <div style={{ padding: '20px 16px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
+            No connector licences assigned.{' '}
+            <Link href={`/platform/tenants/${id}/connectors`} style={{ color: 'var(--blue)', textDecoration: 'none' }}>
+              Add connectors
+            </Link>
+          </div>
+        ) : (
+          <div style={{ padding: '12px 16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {connectorLicences.map((licence) => {
+                const LICENCE_COLOURS: Record<string, { colour: string; bg: string; border: string; label: string }> = {
+                  included:      { label: 'Included',      colour: '#1A6B30', bg: '#E6F7ED', border: '#A3D9B1' },
+                  paid_monthly:  { label: 'Monthly',       colour: '#1E40AF', bg: '#EFF6FF', border: '#BFDBFE' },
+                  paid_annual:   { label: 'Annual',        colour: '#6B21A8', bg: '#F5F3FF', border: '#DDD6FE' },
+                  trial:         { label: 'Trial',         colour: '#92620A', bg: '#FFF8E6', border: '#F5D98C' },
+                  complimentary: { label: 'Complimentary', colour: '#64748B', bg: '#F8FAFC', border: '#CBD5E1' },
+                };
+                const lm = LICENCE_COLOURS[licence.licence_type] ?? LICENCE_COLOURS.paid_monthly;
+                const trialExpired = licence.trial_ends_at ? new Date(licence.trial_ends_at) < new Date() : false;
+                return (
+                  <div key={licence.id} style={{ display: 'flex', alignItems: 'center', gap: 10, opacity: licence.is_enabled ? 1 : 0.6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 500, color: licence.is_enabled ? 'var(--navy)' : 'var(--muted)', flex: 1 }}>
+                      {licence.display_name ?? licence.connector_key}
+                    </span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: lm.colour, background: lm.bg, border: `1px solid ${lm.border}`, borderRadius: 4, padding: '1px 6px' }}>
+                      {lm.label}
+                    </span>
+                    {!licence.is_enabled && (
+                      <span style={{ fontSize: 11, fontWeight: 600, color: '#64748B', background: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: 4, padding: '1px 6px' }}>
+                        Suspended
+                      </span>
+                    )}
+                    {trialExpired && (
+                      <span style={{ fontSize: 11, fontWeight: 600, color: '#DC2626', background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 4, padding: '1px 6px' }}>
+                        Expired
+                      </span>
+                    )}
+                    <span style={{ fontSize: 12, color: 'var(--muted)', minWidth: 90, textAlign: 'right' }}>
+                      {licence.price_gbp_monthly != null
+                        ? licence.price_gbp_monthly === 0 ? '£0 / mo' : `£${licence.price_gbp_monthly.toFixed(2)} / mo`
+                        : '—'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {connectorMrr > 0 && (
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>Connector MRR</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy)' }}>£{connectorMrr.toFixed(2)} / mo</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Subscription history */}
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
