@@ -57,6 +57,28 @@ export default async function PlatformMappingsPage() {
 
   return (
     <div style={{ padding: 24 }}>
+      <div style={{
+        background: '#EFF6FF',
+        border: '1px solid #BFDBFE',
+        borderRadius: 8,
+        padding: '12px 16px',
+        marginBottom: 20,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        fontSize: 13,
+        color: '#1E40AF',
+      }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span>
+          Mapping templates are now managed within each connector.{' '}
+          <Link href="/platform/connectors" style={{ color: '#1E40AF', fontWeight: 600 }}>
+            Go to Connectors →
+          </Link>
+        </span>
+      </div>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--navy)', letterSpacing: -0.3, margin: 0 }}>

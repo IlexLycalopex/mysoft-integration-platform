@@ -264,6 +264,7 @@ export async function createTemplate(
   const description = (formData.get('description') as string)?.trim() || null;
   const transaction_type = formData.get('transaction_type') as TransactionType;
   const mappingsJson = formData.get('column_mappings') as string;
+  const connector_id = (formData.get('connector_id') as string | null) || null;
 
   const fieldErrors: Record<string, string> = {};
   if (!name) fieldErrors.name = 'Name is required';
@@ -290,6 +291,7 @@ export async function createTemplate(
       is_template: true,
       template_status: 'draft',
       column_mappings,
+      connector_id,
     })
     .select('id')
     .single<{ id: string }>();

@@ -77,9 +77,16 @@ export default async function ConnectorDetailPage({ params }: { params: Promise<
         }}>
           Object types →
         </Link>
+        <Link href={`/platform/connectors/${id}/mappings`} style={{
+          fontSize: 12, fontWeight: 500, color: 'var(--navy)',
+          padding: '6px 14px', borderRadius: 5, border: '1px solid var(--border)',
+          textDecoration: 'none', background: 'var(--surface)',
+        }}>
+          Mappings →
+        </Link>
       </div>
 
-      {canEdit && !connector.is_system ? (
+      {canEdit ? (
         <EditConnectorForm connector={connector} />
       ) : (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: 24 }}>
@@ -101,7 +108,7 @@ export default async function ConnectorDetailPage({ params }: { params: Promise<
               </div>
             </div>
           </div>
-          <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 20 }}>System connectors are read-only.</p>
+          <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 20 }}>You do not have permission to edit connectors.</p>
         </div>
       )}
     </div>

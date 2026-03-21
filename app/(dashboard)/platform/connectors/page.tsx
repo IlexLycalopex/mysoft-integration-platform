@@ -9,6 +9,7 @@ interface ConnectorRow {
   connector_key: string;
   display_name: string;
   description: string | null;
+  default_price_gbp_monthly: number | null;
   connector_type: string | null;
   is_system: boolean;
   is_active: boolean;
@@ -34,7 +35,7 @@ export default async function PlatformConnectorsPage() {
 
   const { data: connectors } = await (admin as any)
     .from('endpoint_connectors')
-    .select('id, connector_key, display_name, description, connector_type, is_system, is_active, capabilities, created_at')
+    .select('id, connector_key, display_name, description, default_price_gbp_monthly, connector_type, is_system, is_active, capabilities, created_at')
     .order('sort_order', { ascending: true }) as { data: ConnectorRow[] | null };
 
   const rows = connectors ?? [];
@@ -187,6 +188,9 @@ function ConnectorCard({
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
             <code style={{ fontFamily: 'monospace', fontSize: 11 }}>{c.connector_key}</code>
             {c.description && <> · {c.description}</>}
+            {c.default_price_gbp_monthly != null && (
+              <> · <span style={{ fontWeight: 500 }}>£{c.default_price_gbp_monthly.toFixed(2)}/mo</span></>
+            )}
           </div>
         </div>
       </div>

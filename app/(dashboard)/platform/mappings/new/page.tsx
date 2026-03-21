@@ -5,7 +5,11 @@ import type { UserRole } from '@/types/database';
 import NewTemplateForm from './NewTemplateForm';
 import { getAllObjectTypes } from '@/lib/connectors/registry';
 
-export default async function NewTemplatePage() {
+export default async function NewTemplatePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ connector_id?: string }>;
+}) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -18,6 +22,8 @@ export default async function NewTemplatePage() {
   if (profile?.role !== 'platform_super_admin') redirect('/platform/mappings');
 
   const objectTypes = await getAllObjectTypes();
+  const resolvedParams = searchParams ? await searchParams : {};
+  const connectorId = resolvedParams.connector_id ?? null;
 
   return (
     <div style={{ padding: 24, maxWidth: 900 }}>
@@ -32,7 +38,7 @@ export default async function NewTemplatePage() {
           Create a reusable mapping template — saved as draft until you publish it
         </p>
       </div>
-      <NewTemplateForm objectTypes={objectTypes} />
+      <NewTemplateForm objectTypes={objectTypes} connectorId={connectorId} />
     </div>
   );
 }
