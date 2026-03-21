@@ -8,7 +8,7 @@ import type { UserRole } from '@/types/database';
 
 export type JobStatus = 'pending' | 'processing' | 'completed' | 'completed_with_errors' | 'failed' | 'cancelled' | 'awaiting_approval';
 
-export type SourceType = 'manual' | 'agent' | 'sftp_poll';
+export type SourceType = 'manual' | 'agent' | 'sftp_poll' | 'http_push' | 'json_push';
 
 export interface UploadJobRow {
   id: string;

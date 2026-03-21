@@ -27,7 +27,9 @@ Customers upload CSV files — manually via the web UI, automatically via the Wi
 - Context tracked with an httpOnly cookie (`mip-tenant-ctx`); all queries are automatically scoped
 
 ### File Upload & Ingestion
-- Drag-and-drop or click-to-upload (CSV / XLSX) with 50 MB limit
+- Drag-and-drop or click-to-upload with 50 MB limit
+- **Supported file formats**: CSV (`.csv`), Excel (`.xlsx` / `.xls`), tab-delimited (`.tsv` / `.tab`), pipe-delimited (`.psv`), and plain-text delimited (`.txt` / `.dat` / `.log`)
+  - Tab and pipe delimiters are detected from file extension; other text files use PapaParse auto-detection
 - Files stored in Supabase Storage (tenant-scoped bucket paths)
 - SHA-256 deduplication: identical file content is rejected with a reference to the existing job
 - Per-upload entity ID override for multi-entity Intacct environments; entity list populated live from Intacct
@@ -43,7 +45,8 @@ Customers upload CSV files — manually via the web UI, automatically via the Wi
 
 ### Automated Ingestion
 - **Windows Agent** — .NET 8 Worker Service; watches local or UNC folders; uploads matching files via REST API with SHA-256 deduplication; runs as a Windows Service
-- **REST API** (`/api/v1/`) — authenticated with per-tenant API keys; endpoints for ingest, job listing, agent config, and heartbeat
+- **REST API** (`/api/v1/`) — authenticated with per-tenant API keys; endpoints for file ingest, JSON record push, job status, agent config, and heartbeat
+- **JSON push endpoint** (`POST /api/v1/push-records`) — accepts a JSON array of pre-mapped row objects; converts to CSV internally and runs through the full pipeline; supports optional base64-encoded supporting document attachment; returns `{ jobId, rowCount, status, autoProcess }`
 - **API Key management** — create, label, and revoke long-lived API keys from Settings → API Keys
 - **Watcher configs** — configure folder watchers per tenant (path, file pattern, archive action, poll interval, auto-process)
 - **Auto-process** — jobs uploaded by the agent with `auto_process = true` are processed inline immediately; no separate trigger required
@@ -75,9 +78,10 @@ Customers upload CSV files — manually via the web UI, automatically via the Wi
 - XML Gateway API client with session-based authentication
 - Multi-entity support: `entityId` sets `<locationid>` in the Intacct login block, scoping the session to that entity
 - **Supported transaction types**: Journal Entry, Payroll Journal, AR Invoice, AP Bill, Expense Report, AR Payment, AP Payment, Timesheet, Vendor Import, Customer Import
-- Platform-level Web Services sender credentials (ISV credentials shared across all tenants)
+- Platform-level Web Services sender credentials (ISV credentials shared across all tenants); env var fallback is intentionally absent — credentials must come from the database to prevent cross-tenant leakage
 - Per-tenant Company ID + API User credentials, AES-256-GCM encrypted at rest
 - RECORDNO returned from Intacct on successful posting, stored in `upload_jobs.intacct_record_nos`
+- **Supporting document attachments** (`create_supdoc`): optionally attach a PDF or image alongside a batch upload; the platform uploads it to Intacct as a supdoc and injects the returned `SUPDOCID` into every transaction in the job; supported via the web UI, file ingest API, and JSON push endpoint
 
 ### Data Retention
 - Per-tenant configurable `file_retention_days` (default: 90 days)
@@ -230,6 +234,8 @@ Apply all migrations in order via the Supabase SQL Editor. See [`docs/DEPLOYMENT
 | 035 | `035_webhook_enhancements.sql` | Webhook enhancements: Teams/Slack channels, delivery log, inbound receivers |
 | 036 | `036_connector_registry_extended.sql` | Adds Xero, QuickBooks, Shopify, HubSpot, Salesforce (source) and Sage X3 (target) connector stubs |
 | 037 | `037_connector_licensing.sql` | Per-tenant connector licences: licence type, pricing, platform-controlled billing |
+| 038 | `038_attachment_support.sql` | Supporting document (supdoc) attachment columns on upload_jobs: storage path, filename, MIME type, file size, supdoc_id, folder name |
+| 039 | `039_json_push_delimited_files.sql` | Adds `json_push` to `upload_jobs.source_type` check constraint for the new JSON push endpoint |
 
 ---
 
@@ -276,7 +282,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-Apply all database migrations in order via the Supabase SQL Editor — see `supabase/migrations/` and apply 001 through 037 in sequence (note: 006 and 025 are skipped — merged into adjacent migrations).
+Apply all database migrations in order via the Supabase SQL Editor — see `supabase/migrations/` and apply 001 through 039 in sequence (note: 006 and 025 are skipped — merged into adjacent migrations).
 
 ### First-Run Platform Setup
 
@@ -353,7 +359,9 @@ mysoft-integration-platform/
 │       │   ├── retention/         # Daily 02:00 — file storage cleanup
 │       │   └── usage-snapshot/    # Daily 01:00 — monthly usage snapshot
 │       └── v1/                    # Agent REST API
-│           ├── ingest/            # POST — file upload + auto-process trigger
+│           ├── ingest/            # POST — file upload (CSV/XLSX/TSV/PSV/TXT) + auto-process
+│           ├── push-records/      # POST — JSON record array push + optional attachment
+│           ├── push/[token]/      # POST — webhook-style file push via watcher push token
 │           ├── jobs/              # GET — job list
 │           ├── config/            # GET — watcher configs
 │           └── heartbeat/         # POST — agent heartbeat
@@ -407,9 +415,23 @@ mysoft-integration-platform/
 
 ---
 
-## CSV Format Quick Reference
+## File Format Quick Reference
 
-All transaction types use comma-separated CSV with a header row. Date formats accepted: `DD/MM/YYYY` (default — UK), `MM/DD/YYYY`, `YYYY-MM-DD`, `DD-MM-YYYY`, `DD.MM.YYYY`, or Excel serial numbers.
+All transaction types share the same column headers regardless of file format. Date formats accepted: `DD/MM/YYYY` (default — UK), `MM/DD/YYYY`, `YYYY-MM-DD`, `DD-MM-YYYY`, `DD.MM.YYYY`, or Excel serial numbers.
+
+### Supported Input Formats
+
+| Extension | Delimiter | Detection |
+|-----------|-----------|-----------|
+| `.csv` | Comma (auto-detected) | Extension |
+| `.xlsx` / `.xls` | Excel binary | Extension |
+| `.tsv` / `.tab` | Tab | Extension (forced) |
+| `.psv` | Pipe `\|` | Extension (forced) |
+| `.txt` / `.dat` / `.log` | Any (auto-detected) | PapaParse |
+
+> **Tip**: If a `.txt` auto-detection produces only one column, rename the file to `.psv` or `.tsv` to force the correct delimiter.
+>
+> **JSON push** (`POST /api/v1/push-records`): send records as a JSON array — no file needed.
 
 | Transaction Type | Intacct Object | Key Grouping |
 |-----------------|---------------|--------------|
@@ -490,7 +512,9 @@ The platform exposes a REST API for programmatic file submission and status poll
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
 | `POST` | `/api/v1/ingest/check` | Pre-flight: duplicate check + usage limit check before uploading |
-| `POST` | `/api/v1/ingest` | Submit a file; triggers processing if `mappingId` or `watcherConfigId` is supplied |
+| `POST` | `/api/v1/ingest` | Submit a file (CSV/XLSX/TSV/PSV/TXT); triggers processing if `mappingId` or `watcherConfigId` is supplied |
+| `POST` | `/api/v1/push-records` | Submit a JSON array of records directly; no file required; triggers processing if `mappingId` is supplied |
+| `POST` | `/api/v1/push/{token}` | Webhook-style file push authenticated by push token (watcher config) |
 | `GET`  | `/api/v1/jobs/{id}/status` | Poll job processing status |
 | `GET`  | `/api/v1/config` | Retrieve enabled watcher configurations |
 | `POST` | `/api/v1/heartbeat` | Agent liveness signal (updates `last_used_at` on key) |
@@ -499,7 +523,36 @@ The platform exposes a REST API for programmatic file submission and status poll
 **Error codes of note:**
 - `401` — missing/invalid/revoked key
 - `402` — tenant is over their plan usage limit
-- `409` — duplicate file (same SHA-256 already submitted)
+- `409` — duplicate file/payload (same SHA-256 already submitted)
+
+**JSON push example:**
+```bash
+curl -X POST https://your-instance.vercel.app/api/v1/push-records \
+  -H "Authorization: Bearer <api-key>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "records": [
+      { "DATE": "01/04/2025", "JOURNAL": "GJ", "DEBIT_GL": "4000", "CREDIT_GL": "2100", "AMOUNT": "1500.00", "MEMO": "Payroll run" }
+    ],
+    "mappingId": "uuid-of-mapping",
+    "entityIdOverride": "E100",
+    "filename": "april-journals.csv"
+  }'
+```
+
+Response: `{ "jobId": "uuid", "status": "processing", "rowCount": 1, "autoProcess": true }`
+
+The JSON push endpoint also accepts an optional `attachment` object for supporting documents:
+```json
+{
+  "attachment": {
+    "filename": "invoice.pdf",
+    "mimeType": "application/pdf",
+    "data": "<base64-encoded content>"
+  },
+  "supdocFolderName": "Mysoft Imports"
+}
+```
 
 See the **Developer & API** section in the in-app Help Centre for full request/response documentation and webhook verification examples.
 
@@ -542,6 +595,9 @@ Outbound webhooks notify external systems when jobs complete or fail. Managed in
 - ✅ Connector licensing — per-tenant add-on connector billing; platform billing report with connector MRR; tenant-facing itemised billing page
 - ✅ Platform observability — `/api/health` endpoint, `/platform/jobs` DLQ management, queue status on platform dashboard, DLQ alert banner
 - ✅ Security hardening — removed Intacct env var fallback (credentials must come from DB)
+- ✅ Intacct supporting documents — `create_supdoc` attachment support; base64 upload to Intacct; SUPDOCID injected into all transactions in a job; available via UI, file ingest API, and JSON push
+- ✅ JSON push endpoint — `POST /api/v1/push-records` accepts JSON record arrays with optional base64 attachment; converts to CSV internally; full pipeline reuse
+- ✅ Extended file format support — tab-delimited (`.tsv`/`.tab`), pipe-delimited (`.psv`), and auto-detected plain-text (`.txt`/`.dat`/`.log`) in addition to CSV and XLSX
 
 ### Deferred / Upcoming
 - **SharePoint folder polling** — monitor SharePoint document libraries via Azure AD integration

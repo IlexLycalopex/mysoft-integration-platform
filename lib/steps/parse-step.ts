@@ -102,22 +102,20 @@ export const parseStep: StepExecutor = {
 
 // ── File parsers ──────────────────────────────────────────────────────────────
 
+/**
+ * Explicit delimiter map for well-known extensions.
+ * Falls back to PapaParse auto-detection for .txt / .dat / .log / anything else.
+ */
+const EXPLICIT_DELIMITERS: Record<string, string> = {
+  tsv: '\t',
+  tab: '\t',
+  psv: '|',
+};
+
 async function parseFile(blob: Blob, path: string): Promise<Record<string, string>[]> {
-  const ext = path.split('.').pop()?.toLowerCase();
+  const ext = path.split('.').pop()?.toLowerCase() ?? '';
 
-  if (ext === 'csv') {
-    const text = await blob.text();
-    const result = Papa.parse<Record<string, string>>(text, {
-      header: true,
-      skipEmptyLines: true,
-    });
-    if (result.errors.length > 0) {
-      const fatal = result.errors.find(e => (e.type as string) === 'Delimiter' || (e.type as string) === 'Abort');
-      if (fatal) throw new Error(`CSV parse error: ${fatal.message}`);
-    }
-    return result.data;
-  }
-
+  // ── Spreadsheet formats ──────────────────────────────────────────────────
   if (ext === 'xlsx' || ext === 'xls') {
     const buf = await blob.arrayBuffer();
     const wb  = XLSX.read(buf, { type: 'array' });
@@ -125,5 +123,49 @@ async function parseFile(blob: Blob, path: string): Promise<Record<string, strin
     return XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: '' });
   }
 
-  throw new Error(`Unsupported file type: .${ext ?? 'unknown'}. Please upload a CSV or XLSX file.`);
+  // ── Delimited text formats (CSV + .txt / .tsv / .psv / .dat / .log) ─────
+  const isDelimited =
+    ext === 'csv' ||
+    ext in EXPLICIT_DELIMITERS ||
+    ['txt', 'dat', 'log', 'text'].includes(ext);
+
+  if (isDelimited) {
+    const text = await blob.text();
+
+    // Use explicit delimiter if known; otherwise let PapaParse auto-detect.
+    const delimiterOpt = EXPLICIT_DELIMITERS[ext] ?? '';   // '' = auto-detect
+
+    const result = Papa.parse<Record<string, string>>(text, {
+      header:         true,
+      skipEmptyLines: true,
+      delimiter:      delimiterOpt,
+    });
+
+    if (result.errors.length > 0) {
+      const fatal = result.errors.find(
+        e => (e.type as string) === 'Delimiter' || (e.type as string) === 'Abort'
+      );
+      if (fatal) throw new Error(`Parse error: ${fatal.message}`);
+    }
+
+    // Sanity-check: if auto-detect produced only one column across all rows the
+    // delimiter guess was probably wrong — surface a helpful error.
+    if (delimiterOpt === '' && result.data.length > 0) {
+      const colCount = Object.keys(result.data[0]).length;
+      if (colCount === 1) {
+        const detected = (result.meta as { delimiter?: string }).delimiter ?? '(unknown)';
+        throw new Error(
+          `File parsed as a single column using delimiter "${detected}". ` +
+          `If this is a pipe- or tab-delimited file, rename it to .psv or .tsv so the delimiter is detected correctly.`
+        );
+      }
+    }
+
+    return result.data;
+  }
+
+  throw new Error(
+    `Unsupported file type: .${ext || 'unknown'}. ` +
+    `Supported formats: CSV (.csv), Excel (.xlsx/.xls), tab-delimited (.tsv/.tab), pipe-delimited (.psv), and plain text (.txt/.dat).`
+  );
 }

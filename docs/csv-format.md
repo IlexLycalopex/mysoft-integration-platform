@@ -1,6 +1,22 @@
-# CSV Format Reference — Mysoft Integration Platform
+# File Format Reference — Mysoft Integration Platform
 
-All uploads use comma-separated CSV with a header row. Column names must match exactly (case-insensitive). Required columns must be present and non-empty for every row.
+All uploads share the same column headers regardless of file format. Column names must match exactly (case-insensitive). Required columns must be present and non-empty for every row.
+
+## Supported File Formats
+
+| Extension | Delimiter | Notes |
+|-----------|-----------|-------|
+| `.csv` | Comma | Default; auto-detected |
+| `.xlsx` / `.xls` | Excel binary | First sheet used |
+| `.tsv` / `.tab` | Tab | Forced by extension |
+| `.psv` | Pipe `\|` | Forced by extension |
+| `.txt` / `.dat` / `.log` | Any | PapaParse auto-detection |
+
+> If auto-detection on a `.txt` file results in only one column, rename it to `.psv` or `.tsv` to force the correct delimiter.
+
+**JSON push**: use `POST /api/v1/push-records` to submit records directly as a JSON array — no file needed. See the REST API documentation or in-app Help Centre.
+
+---
 
 **Date formats accepted on all date fields:**
 
