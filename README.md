@@ -118,14 +118,29 @@ Customers upload CSV files — manually via the web UI, automatically via the Wi
 - Sidebar shows tenant logo and brand name instead of Mysoft defaults
 - Email notifications use the tenant's `brand_name` in the subject and body
 
+### Connector Licensing
+- Per-tenant **connector licences** managed by platform admins via **Platform → Tenants → [Tenant] → Connectors**
+- Licence types: `included` (bundled in plan), `paid_monthly`, `paid_annual`, `trial`, `complimentary`
+- Per-connector `price_gbp_monthly` tracks recurring add-on revenue
+- Platform billing report (`/platform/billing`) shows plan MRR, connector MRR, and total MRR across all tenants
+- Tenant subscription page shows each connector licence with type badge, status, and connector MRR subtotal
+- Tenant-facing billing page (`/settings/billing`) shows an itemised monthly bill: base plan + enabled add-on connectors = total; visible to all tenant roles
+- Sage Intacct is always included in the plan at £0; other connectors may be add-on priced
+
 ### Platform Administration
-- Platform dashboard: live stats (active/trial/suspended tenants, sandbox count, total users, new this month), recent activity, recent jobs
+- Platform dashboard: live stats (active/trial/suspended tenants, sandbox count, total users, new this month), job queue status strip, DLQ alert banner, recent activity, recent jobs
 - Tenant management: create, search, filter, and manage all tenants; sandbox tenants shown with SANDBOX badge
-- Per-tenant tab navigation: **Details** (users, sandbox, API keys), **Usage** (monthly metrics), **Subscription** (plan assignment, billing, history), **Branding** (white-label editor)
+- Per-tenant tab navigation: **Details** (users, sandbox, API keys), **Usage** (monthly metrics), **Subscription** (plan, billing, history, connector licences), **Branding** (white-label editor), **Connectors** (licence management)
 - Status-coloured header accent on tenant detail for trial/suspended/offboarded/archived tenants
 - User management across all tenants with tenant filter and search
 - Platform-level Intacct sender credentials management (Platform → Settings)
 - Platform sidebar is fully separate from the tenant workspace — super admins never see tenant-level nav
+
+### Observability & Health Monitoring
+- **`GET /api/health`** — public health check endpoint for uptime monitoring (UptimeRobot, Vercel, etc.); returns `{ status, timestamp, checks: { database, jobQueue, errorRate, agents } }`; HTTP 200 for ok/degraded, 503 for unhealthy
+- **`/platform/jobs`** — platform-level job queue management: live queue depth by status, dead letter queue (DLQ) with one-click retry, active jobs table, recent failures; accessible to all platform admins
+- DLQ warning banner on the platform dashboard links to `/platform/jobs` when jobs are waiting for review
+- Queue status strip on the platform dashboard shows live counts for processing/queued/pending/retry/failed/DLQ with a link to the full job queue page
 
 ### User Management
 - Invite users by email from the tenant settings page or directly from the platform tenant detail page
@@ -205,6 +220,16 @@ Apply all migrations in order via the Supabase SQL Editor. See [`docs/DEPLOYMENT
 | 025 | *(skipped — merged into 024)* | |
 | 026 | `026_user_entity_restrictions.sql` | `allowed_entity_ids text[]` on user_profiles — per-user Intacct entity access restriction |
 | 027 | `027_watcher_execution_logs.sql` | Watcher execution log table — records each poll/push outcome per watcher |
+| 028 | `028_watcher_soft_delete.sql` | Soft-delete (archive) support for watcher_configs — preserves FK integrity with upload_jobs |
+| 029 | `029_branding_templates.sql` | Branding templates table — immutable versioned templates for reuse across tenants |
+| 030 | `030_alter_tenant_branding_templates.sql` | Extends tenant_branding with template_id, allowed_template_ids, custom_branding_data, applied_by/at |
+| 031 | `031_resilience_orchestration.sql` | Enterprise resilience: source artefacts, job steps/items/events, retry columns, pg_cron integration, expanded job statuses |
+| 032 | `032_connector_registry.sql` | Connector registry: endpoint_connectors, endpoint_object_types tables; multi-target pipeline foundation |
+| 033 | `033_template_versioning.sql` | Template versioning on field_mappings; template_version_history table |
+| 034 | `034_field_discovery_cache.sql` | Connector field discovery cache for dynamic schema introspection |
+| 035 | `035_webhook_enhancements.sql` | Webhook enhancements: Teams/Slack channels, delivery log, inbound receivers |
+| 036 | `036_connector_registry_extended.sql` | Adds Xero, QuickBooks, Shopify, HubSpot, Salesforce (source) and Sage X3 (target) connector stubs |
+| 037 | `037_connector_licensing.sql` | Per-tenant connector licences: licence type, pricing, platform-controlled billing |
 
 ---
 
@@ -251,7 +276,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-Apply all database migrations in order via the Supabase SQL Editor — see `supabase/migrations/` and apply 001 through 027 in sequence (note: 006 and 025 are skipped — merged into adjacent migrations).
+Apply all database migrations in order via the Supabase SQL Editor — see `supabase/migrations/` and apply 001 through 037 in sequence (note: 006 and 025 are skipped — merged into adjacent migrations).
 
 ### First-Run Platform Setup
 
@@ -303,17 +328,24 @@ mysoft-integration-platform/
 │   │       │       ├── usage/         # Usage tab — current period + 6-month history
 │   │       │       ├── subscription/  # Subscription tab — plan assignment, billing, history, cancel
 │   │       │       └── branding/      # Branding tab — white-label editor + reset to defaults
+│   │       ├── jobs/              # Job queue management + DLQ
+│   │       │   ├── page.tsx       # Queue status, DLQ, active jobs, recent failures
+│   │       │   └── DlqRetryButton.tsx  # One-click DLQ retry client component
 │   │       ├── users/             # Cross-tenant user management
 │   │       ├── mappings/          # Platform template management
 │   │       └── settings/          # Platform sender credentials
+│   ├── settings/
+│   │   └── billing/               # Tenant-facing itemised billing page (all roles)
 │   └── api/
 │       ├── auth/                  # Supabase auth callback routes
+│       ├── health/                # GET — public health check (database, queue, error rate, agents)
 │       ├── set-context/           # Sandbox context cookie switch
 │       ├── intacct/
 │       │   ├── locations/         # GET — list Intacct entities
 │       │   └── set-entity/        # POST — save entity ID to credentials
 │       ├── jobs/
 │       │   ├── [id]/process/      # POST — trigger job processing
+│       │   ├── [id]/retry/        # POST — re-queue failed/dead_letter job
 │       │   ├── [id]/approve/      # POST — approve awaiting_approval job
 │       │   └── [id]/reject/       # POST — reject awaiting_approval job
 │       ├── cron/
@@ -445,6 +477,8 @@ All cron endpoints require `Authorization: Bearer <CRON_SECRET>`. This is handle
 - API keys stored as SHA-256 hashes only; the raw key is shown once at creation and never again
 - CRON_SECRET protects all cron endpoints from public invocation
 - Audit log captures all credential changes, job operations, and admin actions
+- Intacct sender credentials **must** come from the database (Platform → Settings); env var fallback is intentionally absent to prevent cross-tenant credential leakage
+- Webhook signatures use HMAC-SHA256 with `crypto.timingSafeEqual()` to prevent timing attacks
 - Windows Agent API key should be stored in Windows Credential Manager — not plain text in `appsettings.json`
 
 ---
@@ -504,6 +538,10 @@ Outbound webhooks notify external systems when jobs complete or fail. Managed in
 - ✅ Phase 2 — Automated ingestion (Windows Agent, REST API, watchers, deduplication, webhooks, pre-submission validation, dashboard analytics)
 - ✅ Phase 3 — Approval workflow, multi-entity support, new modules (Timesheets, Vendors, Customers), data retention, usage metering + plan tiers, white labelling, subscription management, over-limit upload blocking, platform consistency pass
 - ✅ Core improvements — HTTP push receiver, SFTP connector, connection test buttons (Intacct + SFTP), watcher execution log, per-user entity restrictions, HTTP push token reveal pattern, audit trail on credential/watcher changes, row quota projection on upload, mapping usage counter
+- ✅ Multi-target connector registry (endpoint_connectors, endpoint_object_types), template versioning, branding templates (platform-managed, per-tenant), field discovery cache, webhook enhancements (Teams/Slack channels, delivery log)
+- ✅ Connector licensing — per-tenant add-on connector billing; platform billing report with connector MRR; tenant-facing itemised billing page
+- ✅ Platform observability — `/api/health` endpoint, `/platform/jobs` DLQ management, queue status on platform dashboard, DLQ alert banner
+- ✅ Security hardening — removed Intacct env var fallback (credentials must come from DB)
 
 ### Deferred / Upcoming
 - **SharePoint folder polling** — monitor SharePoint document libraries via Azure AD integration
