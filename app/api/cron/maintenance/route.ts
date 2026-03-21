@@ -19,23 +19,14 @@
 
 import { NextResponse } from 'next/server';
 import { runWorkerCycle } from '@/lib/workers/job-worker';
+import { verifyCronSecret } from '@/lib/cron-auth';
 
 export const maxDuration = 300;
 
 export async function GET(req: Request) {
   // Verify this is a legitimate Vercel cron call
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = req.headers instanceof Headers
-    ? req.headers.get('authorization')
-    : null;
-
-  if (!cronSecret) {
-    if (process.env.NODE_ENV === 'production') {
-      return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 });
-    }
-  } else if (authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
-  }
+  const authError = verifyCronSecret(req);
+  if (authError) return authError;
 
   try {
     const result = await runWorkerCycle(10);

@@ -2,27 +2,12 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logAudit } from '@/lib/actions/audit';
-import type { UserRole, TransactionType, ColumnMappingEntry } from '@/types/database';
+import { getAuthContext } from '@/lib/actions/auth-context';
+import type { TransactionType, ColumnMappingEntry } from '@/types/database';
 
-const ALLOWED_ROLES: UserRole[] = ['platform_super_admin', 'mysoft_support_admin', 'tenant_admin', 'tenant_operator'];
-
-async function getAuthorisedProfile() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('role, tenant_id')
-    .eq('id', user.id)
-    .single<{ role: UserRole; tenant_id: string | null }>();
-
-  if (!profile || !ALLOWED_ROLES.includes(profile.role) || !profile.tenant_id) return null;
-  return { user, profile };
-}
+const TENANT_ROLES = ['platform_super_admin', 'mysoft_support_admin', 'tenant_admin', 'tenant_operator'] as const;
 
 export type MappingFormState = { error?: string; fieldErrors?: Record<string, string>; mappingId?: string; success?: boolean };
 
@@ -30,8 +15,8 @@ export async function createMapping(
   _prev: MappingFormState,
   formData: FormData
 ): Promise<MappingFormState> {
-  const auth = await getAuthorisedProfile();
-  if (!auth) return { error: 'Not authorised' };
+  const ctx = await getAuthContext([...TENANT_ROLES]);
+  if (!ctx || !ctx.tenantId) return { error: 'Not authorised' };
 
   const name = (formData.get('name') as string)?.trim();
   const description = (formData.get('description') as string)?.trim() || null;
@@ -59,7 +44,7 @@ export async function createMapping(
     await admin
       .from('field_mappings')
       .update({ is_default: false })
-      .eq('tenant_id', auth.profile.tenant_id!)
+      .eq('tenant_id', ctx.tenantId!)
       .eq('transaction_type', transaction_type)
       .eq('is_default', true);
   }
@@ -67,8 +52,8 @@ export async function createMapping(
   const { data: mapping, error } = await admin
     .from('field_mappings')
     .insert({
-      tenant_id: auth.profile.tenant_id!,
-      created_by: auth.user.id,
+      tenant_id: ctx.tenantId!,
+      created_by: ctx.userId,
       name,
       description,
       transaction_type,
@@ -81,8 +66,8 @@ export async function createMapping(
   if (error) return { error: error.message };
 
   await logAudit({
-    userId: auth.user.id,
-    tenantId: auth.profile.tenant_id!,
+    userId: ctx.userId,
+    tenantId: ctx.tenantId!,
     operation: 'create_mapping',
     resourceType: 'field_mapping',
     resourceId: mapping.id,
@@ -98,8 +83,8 @@ export async function updateMapping(
   _prev: MappingFormState,
   formData: FormData
 ): Promise<MappingFormState> {
-  const auth = await getAuthorisedProfile();
-  if (!auth) return { error: 'Not authorised' };
+  const ctx = await getAuthContext([...TENANT_ROLES]);
+  if (!ctx || !ctx.tenantId) return { error: 'Not authorised' };
 
   const name = (formData.get('name') as string)?.trim();
   const description = (formData.get('description') as string)?.trim() || null;
@@ -125,7 +110,7 @@ export async function updateMapping(
     await admin
       .from('field_mappings')
       .update({ is_default: false })
-      .eq('tenant_id', auth.profile.tenant_id!)
+      .eq('tenant_id', ctx.tenantId!)
       .eq('transaction_type', transaction_type)
       .eq('is_default', true)
       .neq('id', mappingId);
@@ -135,13 +120,13 @@ export async function updateMapping(
     .from('field_mappings')
     .update({ name, description, transaction_type, is_default, column_mappings })
     .eq('id', mappingId)
-    .eq('tenant_id', auth.profile.tenant_id!);
+    .eq('tenant_id', ctx.tenantId!);
 
   if (error) return { error: error.message };
 
   await logAudit({
-    userId: auth.user.id,
-    tenantId: auth.profile.tenant_id!,
+    userId: ctx.userId,
+    tenantId: ctx.tenantId!,
     operation: 'update_mapping',
     resourceType: 'field_mapping',
     resourceId: mappingId,
@@ -157,8 +142,8 @@ export async function cloneMapping(
   sourceMappingId: string,
   inheritanceMode: 'standalone' | 'linked' | 'inherit' = 'standalone',
 ): Promise<{ error?: string; mappingId?: string }> {
-  const auth = await getAuthorisedProfile();
-  if (!auth) return { error: 'Not authorised' };
+  const ctx = await getAuthContext([...TENANT_ROLES]);
+  if (!ctx || !ctx.tenantId) return { error: 'Not authorised' };
 
   const admin = createAdminClient();
 
@@ -195,8 +180,8 @@ export async function cloneMapping(
   const { data: cloned, error } = await (admin as any)
     .from('field_mappings')
     .insert({
-      tenant_id: auth.profile.tenant_id!,
-      created_by: auth.user.id,
+      tenant_id: ctx.tenantId!,
+      created_by: ctx.userId,
       name: `${source.name} (copy)`,
       description: source.description,
       transaction_type: source.transaction_type,
@@ -211,8 +196,8 @@ export async function cloneMapping(
   if (error) return { error: error.message };
 
   await logAudit({
-    userId: auth.user.id,
-    tenantId: auth.profile.tenant_id!,
+    userId: ctx.userId,
+    tenantId: ctx.tenantId!,
     operation: 'create_mapping',
     resourceType: 'field_mapping',
     resourceId: cloned.id,
@@ -224,21 +209,21 @@ export async function cloneMapping(
 }
 
 export async function deleteMapping(mappingId: string): Promise<{ error?: string }> {
-  const auth = await getAuthorisedProfile();
-  if (!auth) return { error: 'Not authorised' };
+  const ctx = await getAuthContext([...TENANT_ROLES]);
+  if (!ctx || !ctx.tenantId) return { error: 'Not authorised' };
 
   const admin = createAdminClient();
   const { error } = await admin
     .from('field_mappings')
     .delete()
     .eq('id', mappingId)
-    .eq('tenant_id', auth.profile.tenant_id!);
+    .eq('tenant_id', ctx.tenantId!);
 
   if (error) return { error: error.message };
 
   await logAudit({
-    userId: auth.user.id,
-    tenantId: auth.profile.tenant_id!,
+    userId: ctx.userId,
+    tenantId: ctx.tenantId!,
     operation: 'delete_mapping',
     resourceType: 'field_mapping',
     resourceId: mappingId,
@@ -252,25 +237,12 @@ export async function deleteMapping(mappingId: string): Promise<{ error?: string
 
 export type TemplateFormState = { error?: string; fieldErrors?: Record<string, string>; templateId?: string };
 
-async function getPlatformSuperAdmin() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('role, tenant_id')
-    .eq('id', user.id)
-    .single<{ role: UserRole; tenant_id: string | null }>();
-  if (profile?.role !== 'platform_super_admin') return null;
-  return { user, profile };
-}
-
 export async function createTemplate(
   _prev: TemplateFormState,
   formData: FormData
 ): Promise<TemplateFormState> {
-  const auth = await getPlatformSuperAdmin();
-  if (!auth) return { error: 'Platform Super Admin access required' };
+  const ctx = await getAuthContext(['platform_super_admin']);
+  if (!ctx) return { error: 'Platform Super Admin access required' };
 
   const name = (formData.get('name') as string)?.trim();
   const description = (formData.get('description') as string)?.trim() || null;
@@ -294,7 +266,7 @@ export async function createTemplate(
     .from('field_mappings')
     .insert({
       tenant_id: null,
-      created_by: auth.user.id,
+      created_by: ctx.userId,
       name,
       description,
       transaction_type,
@@ -309,7 +281,7 @@ export async function createTemplate(
   if (error) return { error: error.message };
 
   await logAudit({
-    userId: auth.user.id,
+    userId: ctx.userId,
     operation: 'create_mapping',
     resourceType: 'field_mapping',
     resourceId: template.id,
@@ -325,8 +297,8 @@ export async function updateTemplate(
   _prev: TemplateFormState,
   formData: FormData
 ): Promise<TemplateFormState> {
-  const auth = await getPlatformSuperAdmin();
-  if (!auth) return { error: 'Platform Super Admin access required' };
+  const ctx = await getAuthContext(['platform_super_admin']);
+  if (!ctx) return { error: 'Platform Super Admin access required' };
 
   const name = (formData.get('name') as string)?.trim();
   const description = (formData.get('description') as string)?.trim() || null;
@@ -354,7 +326,7 @@ export async function updateTemplate(
   if (error) return { error: error.message };
 
   await logAudit({
-    userId: auth.user.id,
+    userId: ctx.userId,
     operation: 'update_mapping',
     resourceType: 'field_mapping',
     resourceId: templateId,
@@ -367,8 +339,8 @@ export async function updateTemplate(
 }
 
 export async function deleteTemplate(templateId: string): Promise<{ error?: string }> {
-  const auth = await getPlatformSuperAdmin();
-  if (!auth) return { error: 'Platform Super Admin access required' };
+  const ctx = await getAuthContext(['platform_super_admin']);
+  if (!ctx) return { error: 'Platform Super Admin access required' };
 
   const admin = createAdminClient();
   const { error } = await admin
@@ -380,7 +352,7 @@ export async function deleteTemplate(templateId: string): Promise<{ error?: stri
   if (error) return { error: error.message };
 
   await logAudit({
-    userId: auth.user.id,
+    userId: ctx.userId,
     operation: 'delete_mapping',
     resourceType: 'field_mapping',
     resourceId: templateId,
@@ -396,8 +368,8 @@ export async function setTemplateStatus(
   status: 'draft' | 'published',
   changeSummary?: string,
 ): Promise<{ error?: string }> {
-  const auth = await getPlatformSuperAdmin();
-  if (!auth) return { error: 'Platform Super Admin access required' };
+  const ctx = await getAuthContext(['platform_super_admin']);
+  if (!ctx) return { error: 'Platform Super Admin access required' };
 
   const admin = createAdminClient();
 
@@ -436,7 +408,7 @@ export async function setTemplateStatus(
         version: nextVersion,
         column_mappings: current.column_mappings ?? [],
         change_summary: changeSummary ?? null,
-        published_by: auth.user.id,
+        published_by: ctx.userId,
       });
 
     // Notify all linked/inherit children that an update is available
@@ -448,7 +420,7 @@ export async function setTemplateStatus(
   }
 
   await logAudit({
-    userId: auth.user.id,
+    userId: ctx.userId,
     operation: 'update_mapping',
     resourceType: 'field_mapping',
     resourceId: templateId,
@@ -465,8 +437,8 @@ export async function setTemplateStatus(
 export async function acceptTemplateUpdate(
   mappingId: string,
 ): Promise<{ error?: string }> {
-  const auth = await getAuthorisedProfile();
-  if (!auth) return { error: 'Not authorised' };
+  const ctx = await getAuthContext([...TENANT_ROLES]);
+  if (!ctx || !ctx.tenantId) return { error: 'Not authorised' };
 
   const admin = createAdminClient();
 
@@ -475,7 +447,7 @@ export async function acceptTemplateUpdate(
     .from('field_mappings')
     .select('parent_template_id, inheritance_mode, tenant_id')
     .eq('id', mappingId)
-    .eq('tenant_id', auth.profile.tenant_id!)
+    .eq('tenant_id', ctx.tenantId!)
     .single();
 
   if (!child) return { error: 'Mapping not found' };
@@ -519,7 +491,7 @@ export async function acceptTemplateUpdate(
         last_synced_at: new Date().toISOString(),
       })
       .eq('id', mappingId)
-      .eq('tenant_id', auth.profile.tenant_id!);
+      .eq('tenant_id', ctx.tenantId!);
 
     if (error) return { error: error.message };
   } else {
@@ -533,14 +505,14 @@ export async function acceptTemplateUpdate(
         last_synced_at: new Date().toISOString(),
       })
       .eq('id', mappingId)
-      .eq('tenant_id', auth.profile.tenant_id!);
+      .eq('tenant_id', ctx.tenantId!);
 
     if (error) return { error: error.message };
   }
 
   await logAudit({
-    userId: auth.user.id,
-    tenantId: auth.profile.tenant_id!,
+    userId: ctx.userId,
+    tenantId: ctx.tenantId!,
     operation: 'update_mapping',
     resourceType: 'field_mapping',
     resourceId: mappingId,
@@ -557,8 +529,8 @@ export async function resolveRowConflict(
   rowId: string,
   resolution: 'keep_mine' | 'accept_platform',
 ): Promise<{ error?: string }> {
-  const auth = await getAuthorisedProfile();
-  if (!auth) return { error: 'Not authorised' };
+  const ctx = await getAuthContext([...TENANT_ROLES]);
+  if (!ctx || !ctx.tenantId) return { error: 'Not authorised' };
 
   const admin = createAdminClient();
 
@@ -566,7 +538,7 @@ export async function resolveRowConflict(
     .from('field_mappings')
     .select('column_mappings, parent_template_id, inheritance_mode, tenant_id')
     .eq('id', mappingId)
-    .eq('tenant_id', auth.profile.tenant_id!)
+    .eq('tenant_id', ctx.tenantId!)
     .single();
 
   if (!child) return { error: 'Mapping not found' };
@@ -607,7 +579,7 @@ export async function resolveRowConflict(
       sync_status: newSyncStatus,
     })
     .eq('id', mappingId)
-    .eq('tenant_id', auth.profile.tenant_id!);
+    .eq('tenant_id', ctx.tenantId!);
 
   if (error) return { error: error.message };
 
@@ -618,8 +590,8 @@ export async function resolveRowConflict(
 export async function breakTemplateLink(
   mappingId: string,
 ): Promise<{ error?: string }> {
-  const auth = await getAuthorisedProfile();
-  if (!auth) return { error: 'Not authorised' };
+  const ctx = await getAuthContext([...TENANT_ROLES]);
+  if (!ctx || !ctx.tenantId) return { error: 'Not authorised' };
 
   const admin = createAdminClient();
 
@@ -628,7 +600,7 @@ export async function breakTemplateLink(
     .from('field_mappings')
     .select('column_mappings')
     .eq('id', mappingId)
-    .eq('tenant_id', auth.profile.tenant_id!)
+    .eq('tenant_id', ctx.tenantId!)
     .single();
 
   if (!child) return { error: 'Mapping not found' };
@@ -646,13 +618,13 @@ export async function breakTemplateLink(
       last_synced_at: null,
     })
     .eq('id', mappingId)
-    .eq('tenant_id', auth.profile.tenant_id!);
+    .eq('tenant_id', ctx.tenantId!);
 
   if (error) return { error: error.message };
 
   await logAudit({
-    userId: auth.user.id,
-    tenantId: auth.profile.tenant_id!,
+    userId: ctx.userId,
+    tenantId: ctx.tenantId!,
     operation: 'update_mapping',
     resourceType: 'field_mapping',
     resourceId: mappingId,

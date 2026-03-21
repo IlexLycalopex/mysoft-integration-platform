@@ -42,7 +42,7 @@ export async function GET(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { data: steps, error } = await (admin as any)
+  const { data: steps, error } = await admin
     .from('job_steps')
     .select('*')
     .eq('job_id', jobId)

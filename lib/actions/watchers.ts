@@ -2,11 +2,10 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { encrypt } from '@/lib/crypto'
 import { getEffectiveTenantId } from '@/lib/tenant-context'
-import type { UserRole } from '@/types/database'
+import { getAuthContext } from '@/lib/actions/auth-context'
 import { logAudit } from '@/lib/actions/audit'
 
 export type WatcherFormState = {
@@ -41,30 +40,18 @@ export type WatcherConfig = {
   updated_at: string
 }
 
-async function getAuthContext(): Promise<
+async function getWatcherAuthContext(): Promise<
   | { ok: true; effectiveTenantId: string; userId: string }
   | { ok: false; error: string }
 > {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: 'Not authenticated' }
+  const ctx = await getAuthContext(['platform_super_admin', 'mysoft_support_admin', 'tenant_admin'])
+  if (!ctx) return { ok: false, error: 'You do not have permission to manage watchers' }
+  if (!ctx.tenantId) return { ok: false, error: 'No tenant associated with your account' }
 
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('role, tenant_id')
-    .eq('id', user.id)
-    .single<{ role: UserRole; tenant_id: string | null }>()
-
-  const allowed: UserRole[] = ['platform_super_admin', 'mysoft_support_admin', 'tenant_admin']
-  if (!profile || !allowed.includes(profile.role)) {
-    return { ok: false, error: 'You do not have permission to manage watchers' }
-  }
-  if (!profile.tenant_id) return { ok: false, error: 'No tenant associated with your account' }
-
-  const { tenantId: effectiveTenantId } = await getEffectiveTenantId(profile.tenant_id)
+  const { tenantId: effectiveTenantId } = await getEffectiveTenantId(ctx.tenantId)
   if (!effectiveTenantId) return { ok: false, error: 'No tenant context' }
 
-  return { ok: true, effectiveTenantId, userId: user.id }
+  return { ok: true, effectiveTenantId, userId: ctx.userId }
 }
 
 function parseWatcherFormData(formData: FormData) {
@@ -112,7 +99,7 @@ export async function createWatcher(
   _prev: WatcherFormState,
   formData: FormData
 ): Promise<WatcherFormState> {
-  const auth = await getAuthContext()
+  const auth = await getWatcherAuthContext()
   if (!auth.ok) return { success: false, error: auth.error }
 
   const fields = parseWatcherFormData(formData)
@@ -179,7 +166,7 @@ export async function updateWatcher(
   _prev: WatcherFormState,
   formData: FormData
 ): Promise<WatcherFormState> {
-  const auth = await getAuthContext()
+  const auth = await getWatcherAuthContext()
   if (!auth.ok) return { success: false, error: auth.error }
 
   const fields = parseWatcherFormData(formData)
@@ -250,7 +237,7 @@ export async function updateWatcher(
 }
 
 export async function deleteWatcher(watcherId: string): Promise<{ success: boolean; error?: string }> {
-  const auth = await getAuthContext()
+  const auth = await getWatcherAuthContext()
   if (!auth.ok) return { success: false, error: auth.error }
 
   const admin = createAdminClient()
@@ -287,7 +274,7 @@ export async function toggleWatcher(
   watcherId: string,
   enabled: boolean
 ): Promise<{ success: boolean; error?: string }> {
-  const auth = await getAuthContext()
+  const auth = await getWatcherAuthContext()
   if (!auth.ok) return { success: false, error: auth.error }
 
   const admin = createAdminClient()

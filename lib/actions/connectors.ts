@@ -2,23 +2,9 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logAudit } from '@/lib/actions/audit';
-import type { UserRole } from '@/types/database';
-
-async function getPlatformSuperAdmin() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single<{ role: UserRole }>();
-  if (profile?.role !== 'platform_super_admin') return null;
-  return { user, profile };
-}
+import { getAuthContext } from '@/lib/actions/auth-context';
 
 // ── Connector CRUD ─────────────────────────────────────────────────────────────
 
@@ -32,8 +18,8 @@ export async function createConnector(
   _prev: ConnectorFormState,
   formData: FormData,
 ): Promise<ConnectorFormState> {
-  const auth = await getPlatformSuperAdmin();
-  if (!auth) return { error: 'Platform Super Admin access required' };
+  const ctx = await getAuthContext(['platform_super_admin']);
+  if (!ctx) return { error: 'Platform Super Admin access required' };
 
   const connectorKey = (formData.get('connector_key') as string)?.trim().toLowerCase().replace(/\s+/g, '_');
   const displayName  = (formData.get('display_name') as string)?.trim();
@@ -54,7 +40,7 @@ export async function createConnector(
       is_system: false,
       is_active: true,
       capabilities: {},
-      created_by: auth.user.id,
+      created_by: ctx.userId,
     })
     .select('id')
     .single();
@@ -65,7 +51,7 @@ export async function createConnector(
   }
 
   await logAudit({
-    userId: auth.user.id,
+    userId: ctx.userId,
     operation: 'create_connector',
     resourceType: 'endpoint_connector',
     resourceId: connector.id,
@@ -81,8 +67,8 @@ export async function updateConnector(
   _prev: ConnectorFormState,
   formData: FormData,
 ): Promise<ConnectorFormState> {
-  const auth = await getPlatformSuperAdmin();
-  if (!auth) return { error: 'Platform Super Admin access required' };
+  const ctx = await getAuthContext(['platform_super_admin']);
+  if (!ctx) return { error: 'Platform Super Admin access required' };
 
   const displayName   = (formData.get('display_name') as string)?.trim();
   const description   = (formData.get('description') as string)?.trim() || null;
@@ -102,7 +88,7 @@ export async function updateConnector(
   if (error) return { error: error.message };
 
   await logAudit({
-    userId: auth.user.id,
+    userId: ctx.userId,
     operation: 'update_connector',
     resourceType: 'endpoint_connector',
     resourceId: connectorId,
@@ -127,8 +113,8 @@ export async function createObjectType(
   _prev: ObjectTypeFormState,
   formData: FormData,
 ): Promise<ObjectTypeFormState> {
-  const auth = await getPlatformSuperAdmin();
-  if (!auth) return { error: 'Platform Super Admin access required' };
+  const ctx = await getAuthContext(['platform_super_admin']);
+  if (!ctx) return { error: 'Platform Super Admin access required' };
 
   const objectKey     = (formData.get('object_key') as string)?.trim().toLowerCase().replace(/\s+/g, '_');
   const displayName   = (formData.get('display_name') as string)?.trim();
@@ -163,7 +149,7 @@ export async function createObjectType(
       field_schema,
       is_system: false,
       is_active: true,
-      created_by: auth.user.id,
+      created_by: ctx.userId,
     })
     .select('id')
     .single();
@@ -174,7 +160,7 @@ export async function createObjectType(
   }
 
   await logAudit({
-    userId: auth.user.id,
+    userId: ctx.userId,
     operation: 'create_object_type',
     resourceType: 'endpoint_object_type',
     resourceId: ot.id,
@@ -191,8 +177,8 @@ export async function updateObjectType(
   _prev: ObjectTypeFormState,
   formData: FormData,
 ): Promise<ObjectTypeFormState> {
-  const auth = await getPlatformSuperAdmin();
-  if (!auth) return { error: 'Platform Super Admin access required' };
+  const ctx = await getAuthContext(['platform_super_admin']);
+  if (!ctx) return { error: 'Platform Super Admin access required' };
 
   const displayName   = (formData.get('display_name') as string)?.trim();
   const description   = (formData.get('description') as string)?.trim() || null;
@@ -231,7 +217,7 @@ export async function updateObjectType(
   if (error) return { error: error.message };
 
   await logAudit({
-    userId: auth.user.id,
+    userId: ctx.userId,
     operation: 'update_object_type',
     resourceType: 'endpoint_object_type',
     resourceId: objectTypeId,
@@ -246,8 +232,8 @@ export async function deleteObjectType(
   objectTypeId: string,
   connectorId: string,
 ): Promise<{ error?: string }> {
-  const auth = await getPlatformSuperAdmin();
-  if (!auth) return { error: 'Platform Super Admin access required' };
+  const ctx = await getAuthContext(['platform_super_admin']);
+  if (!ctx) return { error: 'Platform Super Admin access required' };
 
   const admin = createAdminClient();
   const { error } = await (admin as any)
@@ -259,7 +245,7 @@ export async function deleteObjectType(
   if (error) return { error: error.message };
 
   await logAudit({
-    userId: auth.user.id,
+    userId: ctx.userId,
     operation: 'delete_object_type',
     resourceType: 'endpoint_object_type',
     resourceId: objectTypeId,

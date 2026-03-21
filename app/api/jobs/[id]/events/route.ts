@@ -47,13 +47,13 @@ export async function GET(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  let query = (admin as any).from('job_events')
+  let query = admin.from('job_events')
     .select('*')
     .eq('job_id', jobId)
     .order('created_at', { ascending: true })
     .limit(limit);
 
-  if (severityFilter) query = query.eq('severity', severityFilter);
+  if (severityFilter) query = query.eq('severity', severityFilter as 'info' | 'warn' | 'error' | 'success');
   if (since)          query = query.gt('created_at', since);
 
   const { data: events, error } = await query.returns();

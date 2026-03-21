@@ -291,7 +291,7 @@ export interface Database {
           storage_path: string;
           file_size: number | null;
           mime_type: string | null;
-          status: 'pending' | 'processing' | 'completed' | 'completed_with_errors' | 'failed' | 'cancelled' | 'awaiting_approval';
+          status: 'pending' | 'queued' | 'claimed' | 'processing' | 'awaiting_retry' | 'partially_completed' | 'completed' | 'completed_with_errors' | 'failed' | 'dead_letter' | 'cancelled' | 'awaiting_approval';
           row_count: number | null;
           processed_count: number;
           error_count: number;
@@ -324,6 +324,8 @@ export interface Database {
           supdoc_id: string | null;
           supdoc_folder_name: string | null;
           // migration 031 — resilience / retry orchestration
+          trace_id: string | null;
+          priority: number;
           attempt_count: number;
           max_attempts: number;
           claimed_by: string | null;
@@ -332,6 +334,7 @@ export interface Database {
           error_category: 'transient' | 'data' | 'configuration' | 'system' | null;
           last_error_code: string | null;
           last_error_message: string | null;
+          source_artefact_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -343,7 +346,7 @@ export interface Database {
           storage_path: string;
           file_size?: number | null;
           mime_type?: string | null;
-          status?: 'pending' | 'processing' | 'completed' | 'completed_with_errors' | 'failed' | 'cancelled' | 'awaiting_approval';
+          status?: 'pending' | 'queued' | 'claimed' | 'processing' | 'awaiting_retry' | 'partially_completed' | 'completed' | 'completed_with_errors' | 'failed' | 'dead_letter' | 'cancelled' | 'awaiting_approval';
           row_count?: number | null;
           processed_count?: number;
           error_count?: number;
@@ -376,6 +379,8 @@ export interface Database {
           supdoc_id?: string | null;
           supdoc_folder_name?: string | null;
           // migration 031 — resilience / retry orchestration
+          trace_id?: string | null;
+          priority?: number;
           attempt_count?: number;
           max_attempts?: number;
           claimed_by?: string | null;
@@ -384,6 +389,7 @@ export interface Database {
           error_category?: 'transient' | 'data' | 'configuration' | 'system' | null;
           last_error_code?: string | null;
           last_error_message?: string | null;
+          source_artefact_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -395,7 +401,7 @@ export interface Database {
           storage_path?: string;
           file_size?: number | null;
           mime_type?: string | null;
-          status?: 'pending' | 'processing' | 'completed' | 'completed_with_errors' | 'failed' | 'cancelled' | 'awaiting_approval';
+          status?: 'pending' | 'queued' | 'claimed' | 'processing' | 'awaiting_retry' | 'partially_completed' | 'completed' | 'completed_with_errors' | 'failed' | 'dead_letter' | 'cancelled' | 'awaiting_approval';
           row_count?: number | null;
           processed_count?: number;
           error_count?: number;
@@ -428,6 +434,8 @@ export interface Database {
           supdoc_id?: string | null;
           supdoc_folder_name?: string | null;
           // migration 031 — resilience / retry orchestration
+          trace_id?: string | null;
+          priority?: number;
           attempt_count?: number;
           max_attempts?: number;
           claimed_by?: string | null;
@@ -436,8 +444,172 @@ export interface Database {
           error_category?: 'transient' | 'data' | 'configuration' | 'system' | null;
           last_error_code?: string | null;
           last_error_message?: string | null;
+          source_artefact_id?: string | null;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      job_steps: {
+        Row: {
+          id: string;
+          job_id: string;
+          sequence: number;
+          step_type: 'ingest' | 'parse' | 'validate_source' | 'validate_template' | 'transform' | 'enrich' | 'build_payload' | 'submit' | 'attach_documents' | 'reconcile' | 'complete';
+          status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+          attempt_count: number;
+          started_at: string | null;
+          completed_at: string | null;
+          duration_ms: number | null;
+          error_category: 'transient' | 'data' | 'configuration' | 'system' | null;
+          error_code: string | null;
+          error_message: string | null;
+          metrics_json: Record<string, unknown> | null;
+          metadata_json: Record<string, unknown> | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          job_id: string;
+          sequence: number;
+          step_type: 'ingest' | 'parse' | 'validate_source' | 'validate_template' | 'transform' | 'enrich' | 'build_payload' | 'submit' | 'attach_documents' | 'reconcile' | 'complete';
+          status?: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+          attempt_count?: number;
+          started_at?: string | null;
+          completed_at?: string | null;
+          error_category?: 'transient' | 'data' | 'configuration' | 'system' | null;
+          error_code?: string | null;
+          error_message?: string | null;
+          metrics_json?: Record<string, unknown> | null;
+          metadata_json?: Record<string, unknown> | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          job_id?: string;
+          sequence?: number;
+          step_type?: 'ingest' | 'parse' | 'validate_source' | 'validate_template' | 'transform' | 'enrich' | 'build_payload' | 'submit' | 'attach_documents' | 'reconcile' | 'complete';
+          status?: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+          attempt_count?: number;
+          started_at?: string | null;
+          completed_at?: string | null;
+          error_category?: 'transient' | 'data' | 'configuration' | 'system' | null;
+          error_code?: string | null;
+          error_message?: string | null;
+          metrics_json?: Record<string, unknown> | null;
+          metadata_json?: Record<string, unknown> | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      job_items: {
+        Row: {
+          id: string;
+          job_id: string;
+          tenant_id: string;
+          item_key: string | null;
+          item_sequence: number | null;
+          source_row_number: number | null;
+          status: 'pending' | 'parsed' | 'validated' | 'transformed' | 'submitted' | 'posted' | 'failed' | 'reprocessable' | 'skipped';
+          idempotency_key: string | null;
+          validation_errors_json: Array<{ field: string; message: string }> | null;
+          transformed_payload_json: Record<string, string> | null;
+          endpoint_payload_json: Record<string, unknown> | null;
+          endpoint_record_id: string | null;
+          endpoint_response_json: Record<string, unknown> | null;
+          error_category: 'transient' | 'data' | 'configuration' | 'system' | null;
+          error_code: string | null;
+          error_message: string | null;
+          reprocessable: boolean;
+          posted_at: string | null;
+          metadata_json: Record<string, unknown> | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          job_id: string;
+          tenant_id: string;
+          item_key?: string | null;
+          item_sequence?: number | null;
+          source_row_number?: number | null;
+          status?: 'pending' | 'parsed' | 'validated' | 'transformed' | 'submitted' | 'posted' | 'failed' | 'reprocessable' | 'skipped';
+          idempotency_key?: string | null;
+          validation_errors_json?: Array<{ field: string; message: string }> | null;
+          transformed_payload_json?: Record<string, string> | null;
+          endpoint_payload_json?: Record<string, unknown> | null;
+          endpoint_record_id?: string | null;
+          endpoint_response_json?: Record<string, unknown> | null;
+          error_category?: 'transient' | 'data' | 'configuration' | 'system' | null;
+          error_code?: string | null;
+          error_message?: string | null;
+          reprocessable?: boolean;
+          posted_at?: string | null;
+          metadata_json?: Record<string, unknown> | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          job_id?: string;
+          tenant_id?: string;
+          item_key?: string | null;
+          item_sequence?: number | null;
+          source_row_number?: number | null;
+          status?: 'pending' | 'parsed' | 'validated' | 'transformed' | 'submitted' | 'posted' | 'failed' | 'reprocessable' | 'skipped';
+          idempotency_key?: string | null;
+          validation_errors_json?: Array<{ field: string; message: string }> | null;
+          transformed_payload_json?: Record<string, string> | null;
+          endpoint_payload_json?: Record<string, unknown> | null;
+          endpoint_record_id?: string | null;
+          endpoint_response_json?: Record<string, unknown> | null;
+          error_category?: 'transient' | 'data' | 'configuration' | 'system' | null;
+          error_code?: string | null;
+          error_message?: string | null;
+          reprocessable?: boolean;
+          posted_at?: string | null;
+          metadata_json?: Record<string, unknown> | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      job_events: {
+        Row: {
+          id: string;
+          job_id: string;
+          job_step_id: string | null;
+          job_item_id: string | null;
+          event_type: string;
+          severity: 'info' | 'warn' | 'error' | 'success';
+          message: string;
+          metadata_json: Record<string, unknown> | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          job_id: string;
+          job_step_id?: string | null;
+          job_item_id?: string | null;
+          event_type: string;
+          severity?: 'info' | 'warn' | 'error' | 'success';
+          message: string;
+          metadata_json?: Record<string, unknown> | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          job_id?: string;
+          job_step_id?: string | null;
+          job_item_id?: string | null;
+          event_type?: string;
+          severity?: 'info' | 'warn' | 'error' | 'success';
+          message?: string;
+          metadata_json?: Record<string, unknown> | null;
+          created_at?: string;
         };
         Relationships: [];
       };

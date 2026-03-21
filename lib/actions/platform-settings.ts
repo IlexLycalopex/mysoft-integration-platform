@@ -1,8 +1,7 @@
 'use server';
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
-import type { UserRole } from '@/types/database';
+import { getAuthContext } from '@/lib/actions/auth-context';
 
 export interface PlatformSetting {
   key: string;
@@ -29,21 +28,13 @@ export async function updatePlatformSetting(
   key: string,
   value: unknown,
 ): Promise<string | null> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return 'Not authenticated';
-
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single<{ role: UserRole }>();
-  if (profile?.role !== 'platform_super_admin') return 'Forbidden';
+  const ctx = await getAuthContext(['platform_super_admin']);
+  if (!ctx) return 'Forbidden';
 
   const admin = createAdminClient();
   const { error } = await admin
     .from('platform_settings')
-    .upsert({ key, value, updated_at: new Date().toISOString(), updated_by: user.id });
+    .upsert({ key, value, updated_at: new Date().toISOString(), updated_by: ctx.userId });
 
   if (error) {
     console.error('[platform-settings] update error', error);
@@ -56,23 +47,15 @@ export async function updatePlatformSetting(
 export async function updatePlatformSettings(
   updates: Record<string, unknown>,
 ): Promise<string | null> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return 'Not authenticated';
-
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single<{ role: UserRole }>();
-  if (profile?.role !== 'platform_super_admin') return 'Forbidden';
+  const ctx = await getAuthContext(['platform_super_admin']);
+  if (!ctx) return 'Forbidden';
 
   const admin = createAdminClient();
   const rows = Object.entries(updates).map(([key, value]) => ({
     key,
     value,
     updated_at: new Date().toISOString(),
-    updated_by: user.id,
+    updated_by: ctx.userId,
   }));
 
   const { error } = await admin

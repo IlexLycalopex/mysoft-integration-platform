@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { decrypt } from '@/lib/crypto'
 import type { EncryptedBlob } from '@/lib/crypto'
 import { checkUsageLimits } from '@/lib/actions/usage'
+import { verifyCronSecret } from '@/lib/cron-auth'
 import { createHash } from 'crypto'
 import SftpClient from 'ssh2-sftp-client'
 
@@ -40,16 +41,8 @@ type WatcherResult = {
 }
 
 export async function GET(req: NextRequest) {
-  // Cron auth — fail closed in production if CRON_SECRET is not set
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret) {
-    if (process.env.NODE_ENV === 'production') {
-      return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
-    }
-    // Development: allow unauthenticated access for local testing
-  } else if (req.headers.get('authorization') !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = verifyCronSecret(req)
+  if (authError) return authError
 
   const admin = createAdminClient()
   const now = new Date()
@@ -230,7 +223,7 @@ export async function GET(req: NextRequest) {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
-                  ...(cronSecret ? { Authorization: `Bearer ${cronSecret}` } : {}),
+                  ...(process.env.CRON_SECRET ? { Authorization: `Bearer ${process.env.CRON_SECRET}` } : {}),
                 },
               }).catch(() => {})
             )

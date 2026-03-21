@@ -1,30 +1,18 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import type { UserRole } from '@/types/database';
+import { getAuthContext } from '@/lib/actions/auth-context';
 import { dispatchWebhooks } from '@/lib/webhooks';
 import type { WebhookEvent, ChannelType } from '@/lib/webhooks';
 
 async function getAuthorisedAdmin(): Promise<
-  { admin: ReturnType<typeof createAdminClient>; tenantId: string } | { error: string }
+  { admin: ReturnType<typeof createAdminClient>; tenantId: string; userId: string } | { error: string }
 > {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
-
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('role, tenant_id')
-    .eq('id', user.id)
-    .single<{ role: UserRole; tenant_id: string | null }>();
-
-  const allowed: UserRole[] = ['platform_super_admin', 'mysoft_support_admin', 'tenant_admin'];
-  if (!profile || !allowed.includes(profile.role)) return { error: 'Permission denied' };
-  if (!profile.tenant_id) return { error: 'No tenant associated with your account' };
-
-  return { admin: createAdminClient(), tenantId: profile.tenant_id };
+  const ctx = await getAuthContext(['platform_super_admin', 'mysoft_support_admin', 'tenant_admin']);
+  if (!ctx) return { error: 'Permission denied' };
+  if (!ctx.tenantId) return { error: 'No tenant associated with your account' };
+  return { admin: createAdminClient(), tenantId: ctx.tenantId, userId: ctx.userId };
 }
 
 export interface WebhookFormData {
@@ -249,10 +237,7 @@ export async function createReceiver(
 ): Promise<ReceiverActionState> {
   const ctx = await getAuthorisedAdmin();
   if ('error' in ctx) return { error: ctx.error };
-  const { admin, tenantId } = ctx;
-
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { admin, tenantId, userId } = ctx;
 
   const name        = (formData.get('name') as string)?.trim();
   const description = (formData.get('description') as string)?.trim() || null;
@@ -262,7 +247,7 @@ export async function createReceiver(
 
   const { error } = await (admin as any)
     .from('webhook_receivers')
-    .insert({ tenant_id: tenantId, name, description, secret, created_by: user?.id });
+    .insert({ tenant_id: tenantId, name, description, secret, created_by: userId });
 
   if (error) return { error: error.message };
 

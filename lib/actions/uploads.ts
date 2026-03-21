@@ -5,8 +5,9 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logAudit } from '@/lib/actions/audit';
 import type { UserRole } from '@/types/database';
+import type { JobStatus } from '@/lib/jobs/types';
 
-export type JobStatus = 'pending' | 'processing' | 'completed' | 'completed_with_errors' | 'failed' | 'cancelled' | 'awaiting_approval';
+export type { JobStatus }; // re-export for backwards compatibility
 
 export type SourceType = 'manual' | 'agent' | 'sftp_poll' | 'http_push' | 'json_push';
 

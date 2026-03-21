@@ -47,14 +47,14 @@ export async function GET(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  let query = (admin as any).from('job_items')
+  let query = admin.from('job_items')
     .select('*', { count: 'exact' })
     .eq('job_id', jobId)
     .order('item_sequence', { ascending: true })
     .range(offset, offset + limit - 1);
 
   if (statusFilter) {
-    query = query.eq('status', statusFilter);
+    query = query.eq('status', statusFilter as 'pending' | 'parsed' | 'validated' | 'transformed' | 'submitted' | 'posted' | 'failed' | 'reprocessable' | 'skipped');
   }
 
   const { data: items, error, count } = await query.returns();

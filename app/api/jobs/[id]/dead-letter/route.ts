@@ -83,9 +83,9 @@ export async function GET(
 
   // Gather diagnosis
   const [failedStepsRes, failedItemsRes, dlEventRes] = await Promise.all([
-    (admin as any).from('job_steps').select('step_type, status, error_category, error_code, error_message').eq('job_id', jobId).eq('status', 'failed'),
-    (admin as any).from('job_items').select('id, source_row_number, item_key, error_category, error_code, error_message, reprocessable').eq('job_id', jobId).eq('status', 'failed').limit(50),
-    (admin as any).from('job_events').select('message, metadata_json, created_at').eq('job_id', jobId).eq('event_type', 'job_dead_lettered').order('created_at', { ascending: false }).limit(1).single(),
+    admin.from('job_steps').select('step_type, status, error_category, error_code, error_message').eq('job_id', jobId).eq('status', 'failed'),
+    admin.from('job_items').select('id, source_row_number, item_key, error_category, error_code, error_message, reprocessable').eq('job_id', jobId).eq('status', 'failed').limit(50),
+    admin.from('job_events').select('message, metadata_json, created_at').eq('job_id', jobId).eq('event_type', 'job_dead_lettered').order('created_at', { ascending: false }).limit(1).single(),
   ]);
 
   const reprocessableCount = (failedItemsRes.data ?? []).filter((i: any) => i.reprocessable).length;

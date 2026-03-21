@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendAlertEmail } from '@/lib/email';
+import { verifyCronSecret } from '@/lib/cron-auth';
 
 const ALERT_COOLDOWN_HOURS = 2;
 const AGENT_OFFLINE_MINUTES = 35;
@@ -9,15 +10,8 @@ const HIGH_ERROR_RATE_THRESHOLD = 0.5;
 const HIGH_ERROR_RATE_SAMPLE = 10;
 
 export async function GET(req: NextRequest) {
-  // Verify cron secret — fail closed in production if CRON_SECRET is not set
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    if (process.env.NODE_ENV === 'production') {
-      return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 });
-    }
-  } else if (req.headers.get('authorization') !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const authError = verifyCronSecret(req);
+  if (authError) return authError;
 
   const admin = createAdminClient();
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
