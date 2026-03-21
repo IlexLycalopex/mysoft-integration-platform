@@ -161,7 +161,7 @@ export interface Database {
           id: string;
           name: string;
           slug: string;
-          region: TenantRegion;
+          home_region: TenantRegion;
           status: TenantStatus;
           settings: Record<string, unknown>;
           is_sandbox: boolean;
@@ -178,7 +178,7 @@ export interface Database {
           id?: string;
           name: string;
           slug: string;
-          region: TenantRegion;
+          home_region: TenantRegion;
           status?: TenantStatus;
           settings?: Record<string, unknown>;
           is_sandbox?: boolean;
@@ -195,7 +195,7 @@ export interface Database {
           id?: string;
           name?: string;
           slug?: string;
-          region?: TenantRegion;
+          home_region?: TenantRegion;
           status?: TenantStatus;
           settings?: Record<string, unknown>;
           is_sandbox?: boolean;
@@ -315,6 +315,7 @@ export interface Database {
           file_deleted_at: string | null;
           entity_id_override: string | null;
           entity_id_used: string | null;
+          region: string;
           // migration 038 — supporting document attachment
           attachment_storage_path: string | null;
           attachment_filename: string | null;
@@ -357,6 +358,7 @@ export interface Database {
           file_deleted_at?: string | null;
           entity_id_override?: string | null;
           entity_id_used?: string | null;
+          region?: string;
           // migration 038 — supporting document attachment
           attachment_storage_path?: string | null;
           attachment_filename?: string | null;
@@ -399,6 +401,7 @@ export interface Database {
           file_deleted_at?: string | null;
           entity_id_override?: string | null;
           entity_id_used?: string | null;
+          region?: string;
           // migration 038 — supporting document attachment
           attachment_storage_path?: string | null;
           attachment_filename?: string | null;
@@ -697,6 +700,7 @@ export interface Database {
           description: string | null;
           updated_at: string;
           updated_by: string | null;
+          scope: string;
         };
         Insert: {
           key: string;
@@ -704,6 +708,7 @@ export interface Database {
           description?: string | null;
           updated_at?: string;
           updated_by?: string | null;
+          scope?: string;
         };
         Update: {
           key?: string;
@@ -711,6 +716,7 @@ export interface Database {
           description?: string | null;
           updated_at?: string;
           updated_by?: string | null;
+          scope?: string;
         };
         Relationships: [];
       };

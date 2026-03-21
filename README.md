@@ -190,6 +190,15 @@ Customers upload CSV files — manually via the web UI, automatically via the Wi
 
 ---
 
+## Multi-Region Architecture
+
+- `tenants.home_region` is a durable, immutable tenancy property (`uk | us | eu`) set at onboarding; changes require a formal managed migration process enforced by a database trigger
+- All `upload_jobs` carry a `region` field auto-populated from the tenant via a BEFORE INSERT trigger, enabling future regional worker scoping and data residency enforcement without joins
+- Platform follows a compliance-led regional cell architecture (see `Mysoft_Multi_Region_Architecture_Specification.docx`)
+- Auth remains global; regional Supabase projects are provisioned per-cell when a data residency commitment is made (see `.env.local.example` for intended env-var structure)
+
+---
+
 ## Database Migrations
 
 Apply all migrations in order via the Supabase SQL Editor. See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for full instructions.
@@ -236,6 +245,8 @@ Apply all migrations in order via the Supabase SQL Editor. See [`docs/DEPLOYMENT
 | 037 | `037_connector_licensing.sql` | Per-tenant connector licences: licence type, pricing, platform-controlled billing |
 | 038 | `038_attachment_support.sql` | Supporting document (supdoc) attachment columns on upload_jobs: storage path, filename, MIME type, file size, supdoc_id, folder name |
 | 039 | `039_json_push_delimited_files.sql` | Adds `json_push` to `upload_jobs.source_type` check constraint for the new JSON push endpoint |
+| 040 | `040_home_region_rename.sql` | Renames `tenants.region` → `tenants.home_region`; adds immutability trigger |
+| 041 | `041_job_region_and_settings_scope.sql` | Adds `region` to `upload_jobs` (auto-set from tenant); adds `scope` to `platform_settings` |
 
 ---
 
@@ -282,7 +293,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-Apply all database migrations in order via the Supabase SQL Editor — see `supabase/migrations/` and apply 001 through 039 in sequence (note: 006 and 025 are skipped — merged into adjacent migrations).
+Apply all database migrations in order via the Supabase SQL Editor — see `supabase/migrations/` and apply 001 through 041 in sequence (note: 006 and 025 are skipped — merged into adjacent migrations).
 
 ### First-Run Platform Setup
 
