@@ -40,12 +40,15 @@ type WatcherResult = {
 }
 
 export async function GET(req: NextRequest) {
-  // Cron auth
+  // Cron auth — fail closed in production if CRON_SECRET is not set
   const cronSecret = process.env.CRON_SECRET
-  if (cronSecret) {
-    if (req.headers.get('authorization') !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!cronSecret) {
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
     }
+    // Development: allow unauthenticated access for local testing
+  } else if (req.headers.get('authorization') !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const admin = createAdminClient()

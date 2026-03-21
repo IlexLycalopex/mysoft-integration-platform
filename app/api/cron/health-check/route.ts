@@ -9,13 +9,14 @@ const HIGH_ERROR_RATE_THRESHOLD = 0.5;
 const HIGH_ERROR_RATE_SAMPLE = 10;
 
 export async function GET(req: NextRequest) {
-  // Verify cron secret
+  // Verify cron secret — fail closed in production if CRON_SECRET is not set
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const authHeader = req.headers.get('authorization');
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!cronSecret) {
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 });
     }
+  } else if (req.headers.get('authorization') !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const admin = createAdminClient();

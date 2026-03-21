@@ -323,6 +323,15 @@ export interface Database {
           attachment_file_size: number | null;
           supdoc_id: string | null;
           supdoc_folder_name: string | null;
+          // migration 031 — resilience / retry orchestration
+          attempt_count: number;
+          max_attempts: number;
+          claimed_by: string | null;
+          claimed_at: string | null;
+          next_attempt_at: string | null;
+          error_category: 'transient' | 'data' | 'configuration' | 'system' | null;
+          last_error_code: string | null;
+          last_error_message: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -366,6 +375,15 @@ export interface Database {
           attachment_file_size?: number | null;
           supdoc_id?: string | null;
           supdoc_folder_name?: string | null;
+          // migration 031 — resilience / retry orchestration
+          attempt_count?: number;
+          max_attempts?: number;
+          claimed_by?: string | null;
+          claimed_at?: string | null;
+          next_attempt_at?: string | null;
+          error_category?: 'transient' | 'data' | 'configuration' | 'system' | null;
+          last_error_code?: string | null;
+          last_error_message?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -409,6 +427,15 @@ export interface Database {
           attachment_file_size?: number | null;
           supdoc_id?: string | null;
           supdoc_folder_name?: string | null;
+          // migration 031 — resilience / retry orchestration
+          attempt_count?: number;
+          max_attempts?: number;
+          claimed_by?: string | null;
+          claimed_at?: string | null;
+          next_attempt_at?: string | null;
+          error_category?: 'transient' | 'data' | 'configuration' | 'system' | null;
+          last_error_code?: string | null;
+          last_error_message?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -700,7 +727,7 @@ export interface Database {
           description: string | null;
           updated_at: string;
           updated_by: string | null;
-          scope: string;
+          scope: 'global' | 'regional';
         };
         Insert: {
           key: string;
@@ -708,7 +735,7 @@ export interface Database {
           description?: string | null;
           updated_at?: string;
           updated_by?: string | null;
-          scope?: string;
+          scope?: 'global' | 'regional';
         };
         Update: {
           key?: string;
@@ -716,7 +743,7 @@ export interface Database {
           description?: string | null;
           updated_at?: string;
           updated_by?: string | null;
-          scope?: string;
+          scope?: 'global' | 'regional';
         };
         Relationships: [];
       };

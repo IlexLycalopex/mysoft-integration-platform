@@ -29,7 +29,11 @@ export async function GET(req: Request) {
     ? req.headers.get('authorization')
     : null;
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret) {
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 });
+    }
+  } else if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
   }
 

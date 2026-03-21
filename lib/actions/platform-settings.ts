@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import type { UserRole } from '@/types/database';
 
 export interface PlatformSetting {
   key: string;
@@ -32,6 +33,13 @@ export async function updatePlatformSetting(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return 'Not authenticated';
 
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single<{ role: UserRole }>();
+  if (profile?.role !== 'platform_super_admin') return 'Forbidden';
+
   const admin = createAdminClient();
   const { error } = await admin
     .from('platform_settings')
@@ -51,6 +59,13 @@ export async function updatePlatformSettings(
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return 'Not authenticated';
+
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single<{ role: UserRole }>();
+  if (profile?.role !== 'platform_super_admin') return 'Forbidden';
 
   const admin = createAdminClient();
   const rows = Object.entries(updates).map(([key, value]) => ({
