@@ -19,9 +19,9 @@ export default async function SettingsPage() {
   if (profile?.tenant_id) {
     const { data } = await supabase
       .from('tenants')
-      .select('id, name, region, status, created_at, file_retention_days, settings')
+      .select('id, name, home_region, status, created_at, file_retention_days, settings')
       .eq('id', profile.tenant_id)
-      .single<{ id: string; name: string; region: string; status: string; created_at: string; file_retention_days: number; settings: Record<string, unknown> }>();
+      .single<{ id: string; name: string; home_region: string; status: string; created_at: string; file_retention_days: number; settings: Record<string, unknown> }>();
     tenant = data;
   }
 

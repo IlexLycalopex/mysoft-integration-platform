@@ -98,10 +98,10 @@ export async function orchestrateJob(jobId: string): Promise<OrchestrateResult> 
   // Resolve date locale from tenant region
   const { data: tenant } = await (admin as ReturnType<typeof createAdminClient>)
     .from('tenants')
-    .select('region')
+    .select('home_region')
     .eq('id', job.tenant_id)
     .single();
-  const dateLocale: 'uk' | 'us' = tenant?.region === 'us' ? 'us' : 'uk';
+  const dateLocale: 'uk' | 'us' = tenant?.home_region === 'us' ? 'us' : 'uk';
 
   // Resolve effective entity ID (job override → watcher override)
   let entityId = job.entity_id_override ?? null;

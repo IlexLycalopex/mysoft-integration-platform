@@ -6,7 +6,7 @@ import { updateTenant } from '@/lib/actions/tenants';
 const initialState = { error: undefined, success: false };
 
 interface Props {
-  tenant: { id: string; name: string; region: string; status: string; created_at: string; file_retention_days: number; settings: Record<string, unknown> };
+  tenant: { id: string; name: string; home_region: string; status: string; created_at: string; file_retention_days: number; settings: Record<string, unknown> };
   canEdit: boolean;
 }
 
@@ -29,8 +29,8 @@ export default function TenantSettingsForm({ tenant, canEdit }: Props) {
         <div>
           <label style={labelStyle}>REGION</label>
           <select
-            name="region"
-            defaultValue={tenant.region}
+            name="home_region"
+            defaultValue={tenant.home_region}
             disabled={!canEdit}
             style={{ ...inputStyle, ...(!canEdit ? disabledStyle : {}) }}
           >

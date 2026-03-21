@@ -194,6 +194,29 @@ Always check at three levels independently:
 
 A `control.status = success` response can still have `operation.result.status = failure`.
 
+### Supporting Documents (supdoc)
+
+Upload jobs can carry an optional supporting document attachment. When processed, the file is uploaded to Sage Intacct as a `create_supdoc` object and the resulting `SUPDOCID` is stamped on every transaction in that job.
+
+**Database columns on `upload_jobs`:**
+- `attachment_storage_path` — Supabase Storage path: `{tenantId}/{jobId}/attachments/{filename}`
+- `attachment_filename`, `attachment_mime_type`, `attachment_file_size`
+- `supdoc_id` — written back after Intacct confirms receipt
+- `supdoc_folder_name` — Intacct folder name (default: "Mysoft Imports")
+
+**Processing flow (step 3b in processor):**
+1. Download attachment from Supabase Storage
+2. Base64-encode via `Buffer.from(await blob.arrayBuffer()).toString('base64')`
+3. Call `createSupdoc()` in `lib/intacct/client.ts` — builds `<create_supdoc>` XML
+4. Store `supdoc_id` on the job record
+5. Inject `SUPDOCID` into all transactions (APBILL, ARINVOICE, GLBATCH)
+
+Non-blocking: if supdoc creation fails, a warning is logged and the job continues without SUPDOCID.
+
+**UI:** `FileUploader.tsx` has "+ Attach a supporting document" button (max 10 MB, PDF/PNG/JPG/DOC/DOCX/XLS/XLSX/TXT).
+
+**API:** JSON push endpoint (`/api/v1/push-records`) accepts `attachmentStoragePath`, `attachmentFilename`, `attachmentMimeType` in the request body.
+
 ---
 
 ## 6. Processing Pipeline
@@ -226,6 +249,16 @@ fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/jobs/${jobId}/process`, {
 })
 // Fire-and-forget — ingest endpoint returns 201 immediately
 ```
+
+### Dead-Letter Queue (DLQ) Management
+
+Jobs that exhaust all retry attempts transition to `dead_letter` status. The platform admin can manage DLQ jobs at `/platform/jobs`.
+
+**DLQ retry:** `POST /api/jobs/[id]/retry` with `{ immediate: false }` — resets `attempt_count` to 0, sets status back to `queued`. The `DlqRetryButton` component in `app/(dashboard)/platform/jobs/DlqRetryButton.tsx` handles this with optimistic UI.
+
+**Platform dashboard:** The platform overview (`/platform`) shows a live queue status strip and a red DLQ alert banner when `dlqCount > 0`.
+
+**Health endpoint:** `GET /api/health` returns degraded status when DLQ depth exceeds the configured threshold (`health.dlq_threshold` in platform_settings, default 10).
 
 ---
 
@@ -301,7 +334,7 @@ All date parsing via `normaliseDate()` in `lib/intacct/processor.ts`.
 
 **Output:** `MM/DD/YYYY` — required by the Intacct XML Gateway.
 
-**Region detection:** `tenants.region = 'us'` → ambiguous `XX/XX/XXXX` values parsed as `MM/DD/YYYY`. Otherwise `DD/MM/YYYY` assumed.
+**Region detection:** `tenants.home_region = 'us'` → ambiguous `XX/XX/XXXX` values parsed as `MM/DD/YYYY`. Otherwise `DD/MM/YYYY` assumed.
 
 ---
 
@@ -453,6 +486,44 @@ Push tokens are UUIDs stored in `watcher_configs.push_token`. In the UI, they ar
 
 ---
 
+#### `POST /api/v1/push-records`
+
+Accepts a JSON array of records for direct API integration (no file required).
+
+**Auth:** Bearer token (API key)
+**Content-Type:** application/json
+
+**Request body:**
+```json
+{
+  "mappingId": "uuid",
+  "entityId": "optional-override",
+  "autoProcess": true,
+  "dryRun": false,
+  "records": [
+    { "DATE": "01/04/2025", "AMOUNT": "1000.00" }
+  ],
+  "attachmentStoragePath": "optional/path/in/storage",
+  "attachmentFilename": "invoice.pdf",
+  "attachmentMimeType": "application/pdf"
+}
+```
+
+The endpoint writes records to a virtual CSV in Supabase Storage, creates an `upload_jobs` row with `source_type = 'json_push'`, and optionally triggers immediate processing.
+
+---
+
+### Delimited File Support
+
+Beyond CSV, the platform accepts:
+- **Pipe-delimited** (`.txt`, `.csv` with `|` delimiter)
+- **Tab-delimited** (`.tsv`, `.txt` with `\t` delimiter)
+- **Plain text** (PapaParse auto-detection)
+
+The parser (`lib/csv-parser.ts`) uses PapaParse with `dynamicTyping: false` and auto-delimiter detection. File MIME type and extension are both checked.
+
+---
+
 ### Internal API Endpoints (session auth, internal use only)
 
 | Method | Endpoint | Description |
@@ -477,7 +548,7 @@ Push tokens are UUIDs stored in `watcher_configs.push_token`. In the UI, they ar
 | `status` | text | `active`, `trial`, `suspended` |
 | `is_sandbox` | boolean | True for sandbox environments |
 | `sandbox_of` | uuid FK | Points to production tenant if sandbox |
-| `region` | text | `uk` or `us` — affects date parsing |
+| `home_region` | text | `uk` or `us` — affects date parsing; renamed from `region` in migration 040; immutable after creation (enforced by trigger) |
 | `settings` | jsonb | Per-tenant settings; `approval_required: 'true'` to enable approval workflow |
 | `file_retention_days` | int | Days to keep files in Storage (default: 90) |
 | `plan_id` | text FK → plans | Active plan (default: `free`) |
@@ -553,6 +624,13 @@ Push tokens are UUIDs stored in `watcher_configs.push_token`. In the UI, they ar
 | `rejected_at` | timestamptz | |
 | `rejection_note` | text | |
 | `file_deleted_at` | timestamptz | Set when retention cron removes the file |
+| `attachment_storage_path` | text | Supabase Storage path for optional supporting document |
+| `attachment_filename` | text | Original filename of the attachment |
+| `attachment_mime_type` | text | MIME type of the attachment |
+| `attachment_file_size` | bigint | Attachment size in bytes |
+| `supdoc_id` | text | Intacct SUPDOCID written back after successful supdoc creation |
+| `supdoc_folder_name` | text | Intacct folder name for the supdoc (default: "Mysoft Imports") |
+| `region` | text | Auto-populated from `tenant.home_region` via trigger (migration 041); used for regional queue routing |
 
 ### `watcher_configs`
 | Column | Type | Description |
@@ -712,6 +790,29 @@ Push tokens are UUIDs stored in `watcher_configs.push_token`. In the UI, they ar
 
 See `.env.local.example` for the template.
 
+### Platform Settings
+
+The `platform_settings` table (migration 039) stores platform-wide configurable values as key/value JSONB pairs. Accessible via the Platform → Settings screen (platform_super_admin only).
+
+**Settings and their defaults:**
+
+| Key | Default | Scope | Description |
+|-----|---------|-------|-------------|
+| `health.dlq_threshold` | 10 | regional | DLQ jobs that trigger degraded status |
+| `health.error_rate_pct` | 50 | regional | % failed jobs in 1hr for degraded |
+| `health.agent_offline_minutes` | 15 | regional | Inactivity before agent considered offline |
+| `notifications.support_email` | support@mysoftx3.com | global | Default support address in emails |
+| `jobs.default_supdoc_folder` | Mysoft Imports | regional | Default Intacct supdoc folder |
+| `users.invite_ttl_days` | 7 | global | Invite link expiry |
+| `sftp.connection_timeout_ms` | 15000 | regional | SFTP connect timeout |
+| `sftp.retry_count` | 1 | regional | SFTP retry attempts |
+
+The `scope` column (added migration 041) classifies each setting as `global` (stays central) or `regional` (will be per-cell in a future multi-region deployment).
+
+Health check thresholds are read at runtime from this table by `GET /api/health` — changes take effect immediately without deployment.
+
+**Server actions:** `lib/actions/platform-settings.ts` — `getPlatformSettings()`, `updatePlatformSettings()`
+
 ---
 
 ## 16. Cron Jobs
@@ -814,6 +915,7 @@ curl "https://mysoft-integration-platform.vercel.app/api/v1/jobs" \
 - ✅ Phase 2 — Automated ingestion (Windows Agent, REST API, watchers, dedup, pre-flight validation, webhooks, dashboard analytics)
 - ✅ Phase 3 — Approval workflow, multi-entity support, new modules (Timesheets, Vendors, Customers), data retention, usage metering + plan tiers, subscription management, white labelling, platform consistency pass
 - ✅ Core improvements — HTTP push receiver (`POST /api/v1/push/:token`), SFTP connector (credentials + test), connection test buttons (Intacct + SFTP), watcher execution log (`watcher_execution_logs` table), per-user entity restrictions (`allowed_entity_ids`), HTTP push token reveal/mask UI, audit trail on credential and watcher changes, row quota projection on upload, mapping job-count column
+- ✅ March 2026 additions — Supporting document (supdoc) attachment feature, JSON push endpoint (`POST /api/v1/push-records`), delimited file support (pipe/tab), DLQ management UI, platform settings table, multi-region Phase 1 foundation (migrations 039–041)
 
 **Current status:** Platform is feature-complete and in active customer rollout.
 
@@ -830,3 +932,36 @@ curl "https://mysoft-integration-platform.vercel.app/api/v1/jobs" \
 - `fast-xml-parser` `isArray` workaround is fragile — a more robust Intacct response parser would improve reliability.
 - No error alerting — consider Sentry or similar for silent Intacct submission failures in production.
 - Webhook delivery is best-effort with no retries — high-volume tenants may miss events during their endpoint downtime.
+
+---
+
+## 21. Multi-Region Architecture
+
+### Multi-Region Phase 1 — Foundation (Migrations 040–041)
+
+The platform's multi-region foundation was implemented in March 2026. This is infrastructure-ready scaffolding; actual regional Supabase projects are deferred until a data residency commitment triggers provisioning.
+
+**What was built:**
+
+`tenants.region` was renamed to `tenants.home_region` (migration 040). A BEFORE UPDATE trigger (`enforce_home_region_immutability`) now prevents casual region changes — an exception is raised if `home_region` is altered after creation. Region changes require a formal managed migration process.
+
+`upload_jobs.region` (migration 041) is auto-populated from the tenant's `home_region` via a BEFORE INSERT trigger (`auto_set_job_region`). This denormalization enables future region-scoped worker claims without joins. A composite index `(region, status)` supports efficient regional queue queries.
+
+`platform_settings.scope` (migration 041) classifies each setting as `global` or `regional` — preparing for per-region settings in future cells.
+
+**Auth decision:** Supabase Auth remains global (current project). When regional data cells are provisioned, regional Supabase URLs are used only for data queries, not auth. This avoids the chicken-and-egg problem of knowing a user's region before authenticating.
+
+**Vercel decision:** Single Vercel deployment with Edge Middleware for regional routing (not separate Vercel projects per region).
+
+**Trigger criteria for Phase 2 (infrastructure split):**
+- Customer/prospect requires written data residency commitment
+- US tenant onboarded who cannot have data in UK infrastructure
+- Sales targets regulated sector where residency is a close barrier
+
+**Phase 2 involves:** provisioning regional Supabase projects, splitting storage buckets, adding Edge Middleware to route data queries by `home_region`.
+
+**Files:**
+- `supabase/migrations/040_home_region_rename.sql`
+- `supabase/migrations/041_job_region_and_settings_scope.sql`
+- `lib/intacct/processor.ts` — uses `home_region` for date locale
+- `lib/jobs/job-orchestrator.ts` — uses `home_region` for date locale

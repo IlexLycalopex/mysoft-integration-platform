@@ -17,6 +17,7 @@ interface NavItem {
   label: string;
   icon: string;
   adminOnly?: boolean;
+  platformAdminOnly?: boolean;
   badge?: boolean;
 }
 
@@ -33,6 +34,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'usage-plans',        label: 'Usage & Plans',          icon: '📈' },
   { id: 'new-formats',        label: 'New Data Formats',       icon: '📁' },
   { id: 'developer',          label: 'Developer & API',        icon: '⚙️', adminOnly: true },
+  { id: 'platform-admin',     label: 'Platform Administration', icon: '⚙️', platformAdminOnly: true },
 ];
 
 // ── Shared style helpers ────────────────────────────────────────────────────
@@ -373,6 +375,24 @@ function SectionUploadingFiles() {
         </p>
         <div style={infoBox}>
           <strong>Per-user entity restrictions:</strong> A tenant admin can restrict individual user accounts to specific entities. If your account has been restricted, only your permitted entities will appear in the dropdown — attempting to submit to a different entity will be rejected. Contact your tenant admin to adjust entity access.
+        </div>
+
+        <h3 style={subHeading}>Supporting Document (Intacct supdoc)</h3>
+        <p style={bodyText}>
+          You can optionally attach a PDF, image, or Office file to an import job. When the job processes, the file is uploaded to Sage Intacct as a supporting document (supdoc) and its ID is stamped on every transaction in that job (<code style={{ fontFamily: 'monospace', fontSize: 12 }}>APBILL</code>, <code style={{ fontFamily: 'monospace', fontSize: 12 }}>ARINVOICE</code>, <code style={{ fontFamily: 'monospace', fontSize: 12 }}>GLBATCH</code>).
+        </p>
+        <p style={{ ...bodyText, marginBottom: 4 }}><strong>To attach a supporting document:</strong></p>
+        <ol style={{ ...bodyText, paddingLeft: 20 }}>
+          <li style={{ marginBottom: 8 }}>After selecting your data file, click <strong>+ Attach a supporting document</strong>.</li>
+          <li style={{ marginBottom: 8 }}>Select a PDF, PNG, JPG, GIF, DOC, DOCX, XLS, XLSX, or TXT file (max 10 MB).</li>
+          <li style={{ marginBottom: 8 }}>Optionally change the Intacct folder name (default: <strong>Mysoft Imports</strong>).</li>
+          <li style={{ marginBottom: 8 }}>Proceed with upload — the attachment is uploaded to storage and linked to the job.</li>
+        </ol>
+        <p style={bodyText}>
+          The <code style={{ fontFamily: 'monospace', fontSize: 12 }}>SUPDOCID</code> is written back to the job record once Intacct confirms receipt. If the supdoc upload fails, the job continues without <code style={{ fontFamily: 'monospace', fontSize: 12 }}>SUPDOCID</code> rather than failing entirely.
+        </p>
+        <div style={infoBox}>
+          <strong>Supported file types</strong> match Intacct&apos;s accepted attachment formats. The 10 MB limit applies to the supporting document; the data file limit is 50 MB.
         </div>
 
         <div style={infoBox}>
@@ -1856,12 +1876,162 @@ def handle_webhook():
   );
 }
 
+// ── Section: Platform Administration ────────────────────────────────────────
+
+function SectionPlatformAdmin() {
+  return (
+    <section id="platform-admin" style={{ scrollMarginTop: 24 }}>
+      <div style={card}>
+        <h2 style={sectionHeading}>⚙️ Platform Administration</h2>
+        <p style={bodyText}>
+          Platform Administration screens are available exclusively to <code style={{ fontFamily: 'monospace', fontSize: 12 }}>platform_super_admin</code> and <code style={{ fontFamily: 'monospace', fontSize: 12 }}>mysoft_support_admin</code> roles. These tools allow you to configure platform-wide settings, monitor job queues, manage tenant connector licences, and view health status.
+        </p>
+
+        <h3 style={subHeading}>Platform Settings (<code style={{ fontFamily: 'monospace', fontSize: 12 }}>/platform/settings</code>)</h3>
+        <p style={bodyText}>
+          The Platform Settings page contains five configurable sections:
+        </p>
+        <div style={{ overflowX: 'auto', marginBottom: 16 }}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={th}>Section</th>
+                <th style={th}>Key settings</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={{ ...td, fontWeight: 600 }}>Intacct Sender Credentials</td>
+                <td style={td}>Platform-level Web Services sender ID and password used as fallback credentials.</td>
+              </tr>
+              <tr>
+                <td style={{ ...td, fontWeight: 600 }}>Health Check Thresholds</td>
+                <td style={td}>DLQ threshold (default 10 jobs), error rate % (default 50%), agent offline window (default 15 min). Changes take effect immediately at <code style={{ fontFamily: 'monospace', fontSize: 12 }}>/api/health</code>.</td>
+              </tr>
+              <tr>
+                <td style={{ ...td, fontWeight: 600 }}>Email &amp; Notifications</td>
+                <td style={td}>Support address shown in all outgoing system emails.</td>
+              </tr>
+              <tr>
+                <td style={{ ...td, fontWeight: 600 }}>Job Processing</td>
+                <td style={td}>Default Intacct supdoc folder name used when no per-job folder is specified. Users &amp; Invites: invite link TTL in days.</td>
+              </tr>
+              <tr>
+                <td style={{ ...td, fontWeight: 600 }}>SFTP Watcher Defaults</td>
+                <td style={td}>Global default connection timeout (ms) and retry count. Per-watcher configuration overrides these values.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 style={subHeading}>Job Queue &amp; Dead-Letter Queue (<code style={{ fontFamily: 'monospace', fontSize: 12 }}>/platform/jobs</code>)</h3>
+        <p style={bodyText}>
+          The Jobs screen gives a real-time overview of queue health across the platform.
+        </p>
+        <ul style={{ ...bodyText, paddingLeft: 20 }}>
+          <li style={{ marginBottom: 8 }}><strong>Queue depth cards</strong> — counts for Processing, Queued, Pending, Retry, Failed, and DLQ statuses.</li>
+          <li style={{ marginBottom: 8 }}><strong>DLQ table</strong> — jobs that have exhausted all retry attempts. Displays job ID, tenant, filename, and last error message.</li>
+          <li style={{ marginBottom: 8 }}><strong>Retry button</strong> — re-queues a DLQ job: resets the attempt count and sets status back to <code style={{ fontFamily: 'monospace', fontSize: 12 }}>queued</code> so the normal processing pipeline picks it up.</li>
+          <li style={{ marginBottom: 8 }}><strong>Active jobs table</strong> — currently processing or queued jobs across all tenants.</li>
+          <li style={{ marginBottom: 8 }}><strong>Recent failures table</strong> — the last 20 failed jobs across the platform, useful for diagnosing systemic issues.</li>
+        </ul>
+        <div style={infoBox}>
+          <strong>DLQ retries go back to the normal queue.</strong> When you click Retry on a DLQ job, the job is placed back into the standard processing queue — it does not jump to the front. Monitor the Active jobs table to confirm it is picked up.
+        </div>
+
+        <h3 style={subHeading}>Health Monitoring (<code style={{ fontFamily: 'monospace', fontSize: 12 }}>/api/health</code>)</h3>
+        <p style={bodyText}>
+          A public <strong>GET</strong> endpoint that returns a JSON health summary suitable for external uptime monitors (UptimeRobot, Pingdom, etc.).
+        </p>
+        <p style={{ ...bodyText, marginBottom: 4 }}><strong>Response shape:</strong></p>
+        <div style={codeBlock}>
+{`{
+  "status": "ok" | "degraded" | "unhealthy",
+  "timestamp": "2026-03-21T09:00:00.000Z",
+  "checks": {
+    "database": { "status": "ok" },
+    "jobQueueDlq": { "status": "ok", "dlqCount": 2, "threshold": 10 },
+    "errorRate": { "status": "ok", "rate": 3.2, "threshold": 50 },
+    "agentHeartbeat": { "status": "ok", "lastSeenMinutesAgo": 4, "threshold": 15 }
+  }
+}`}
+        </div>
+        <div style={{ overflowX: 'auto', marginBottom: 16 }}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={th}>Overall status</th>
+                <th style={th}>HTTP code</th>
+                <th style={th}>Meaning</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={tdCode}>ok</td>
+                <td style={td}>200</td>
+                <td style={td}>All checks passing within configured thresholds.</td>
+              </tr>
+              <tr>
+                <td style={tdCode}>degraded</td>
+                <td style={td}>200</td>
+                <td style={td}>One or more checks are at warning level but the platform is still operational.</td>
+              </tr>
+              <tr>
+                <td style={tdCode}>unhealthy</td>
+                <td style={td}>503</td>
+                <td style={td}>A critical check has failed — database unreachable, DLQ or error rate threshold breached, or agent offline.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div style={infoBox}>
+          Health check thresholds (DLQ depth, error rate %, agent offline window) are configurable in <strong>Platform Settings</strong>. Changes take effect immediately — no restart required.
+        </div>
+
+        <h3 style={subHeading}>Connector Licensing (<code style={{ fontFamily: 'monospace', fontSize: 12 }}>/platform/connectors</code>)</h3>
+        <p style={bodyText}>
+          Platform admins assign connector licences to tenants from the Platform → Connectors screen. Each connector licence grants a tenant access to a specific integration (e.g. Sage Intacct).
+        </p>
+        <ul style={{ ...bodyText, paddingLeft: 20 }}>
+          <li style={{ marginBottom: 8 }}>Tenants without a valid licence for a connector <strong>cannot submit jobs</strong> for that connector — the upload page will show an error.</li>
+          <li style={{ marginBottom: 8 }}>Licences can have an optional expiry date. Expired licences are treated as revoked.</li>
+          <li style={{ marginBottom: 8 }}>Licence assignment, expiry date, and revocation are all managed from the Platform → Connectors screen.</li>
+        </ul>
+
+        <h3 style={subHeading}>Tenant Home Region</h3>
+        <p style={bodyText}>
+          Every tenant is assigned a <strong>home region</strong> (UK, US, or EU) at creation time. The home region governs data residency — all jobs, attachments, and processing records are associated with the tenant&apos;s home region.
+        </p>
+        <div style={{
+          background: '#fffbeb',
+          border: '1px solid #f59e0b',
+          borderRadius: 6,
+          padding: '12px 16px',
+          fontSize: 14,
+          color: '#78350f',
+          marginBottom: 16,
+        }}>
+          <strong>Home region is immutable.</strong> A tenant&apos;s home region cannot be changed through normal settings. Region changes require a formal managed migration process — contact platform support to initiate a migration.
+        </div>
+        <p style={bodyText}>
+          When creating a new tenant, choose the region carefully based on where the customer&apos;s data must reside. Once set, the region cannot be altered without a full data migration.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 // ── Main component ──────────────────────────────────────────────────────────
 
 export default function HelpCentre({ role, hasCredentials, hasMapping, hasJob, initialSection }: HelpCentreProps) {
   const isAdmin = role === 'tenant_admin' || role === 'platform_super_admin' || role === 'mysoft_support_admin';
+  const isPlatformAdmin = role === 'platform_super_admin' || role === 'mysoft_support_admin';
 
-  const visibleNav = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin);
+  const visibleNav = NAV_ITEMS.filter((item) => {
+    if (item.platformAdminOnly) return isPlatformAdmin;
+    if (item.adminOnly) return isAdmin;
+    return true;
+  });
 
   const [activeSection, setActiveSection] = useState<string>(
     initialSection ?? visibleNav[0]?.id ?? 'uploading-files'
@@ -2026,6 +2196,7 @@ export default function HelpCentre({ role, hasCredentials, hasMapping, hasJob, i
           <SectionUsagePlans />
           <SectionNewFormats />
           {isAdmin && <SectionDeveloper />}
+          {isPlatformAdmin && <SectionPlatformAdmin />}
 
           <div style={{ height: 48 }} />
         </div>

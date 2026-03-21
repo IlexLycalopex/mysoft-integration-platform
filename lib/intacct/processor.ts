@@ -210,10 +210,10 @@ async function runJob(
   // 3 — load tenant region (for date parsing locale) + credentials
   const { data: tenantRow } = await admin
     .from('tenants')
-    .select('region')
+    .select('home_region')
     .eq('id', tenantId)
-    .single<{ region: 'uk' | 'us' | 'eu' }>();
-  const dateLocale: 'uk' | 'us' = tenantRow?.region === 'us' ? 'us' : 'uk';
+    .single<{ home_region: 'uk' | 'us' | 'eu' }>();
+  const dateLocale: 'uk' | 'us' = tenantRow?.home_region === 'us' ? 'us' : 'uk';
 
   logEntry(log, 'info', 'Loading Intacct credentials...');
   let creds = await getCredentials(tenantId);

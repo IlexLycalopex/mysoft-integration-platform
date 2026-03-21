@@ -5,7 +5,7 @@ import { platformUpdateTenant } from '@/lib/actions/tenants';
 import type { TenantStatus, TenantRegion } from '@/types/database';
 
 interface Props {
-  tenant: { id: string; name: string; slug: string; region: TenantRegion; status: TenantStatus; created_at: string };
+  tenant: { id: string; name: string; slug: string; home_region: TenantRegion; status: TenantStatus; created_at: string };
   canEdit: boolean;
 }
 
@@ -36,7 +36,7 @@ export default function TenantDetailForm({ tenant, canEdit }: Props) {
         </div>
         <div>
           <label style={labelStyle}>REGION</label>
-          <select name="region" defaultValue={tenant.region} disabled={!canEdit} style={{ ...inputStyle, ...(!canEdit ? disabledStyle : {}) }}>
+          <select name="home_region" defaultValue={tenant.home_region} disabled={!canEdit} style={{ ...inputStyle, ...(!canEdit ? disabledStyle : {}) }}>
             <option value="uk">United Kingdom</option>
             <option value="us">United States</option>
             <option value="eu">European Union</option>

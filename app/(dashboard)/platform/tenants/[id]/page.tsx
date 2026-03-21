@@ -19,7 +19,7 @@ interface TenantRow {
   id: string;
   name: string;
   slug: string;
-  region: TenantRegion;
+  home_region: TenantRegion;
   status: TenantStatus;
   is_sandbox: boolean;
   sandbox_of: string | null;
@@ -73,7 +73,7 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
   const now = new Date();
 
   const [{ data: tenant }, usersResult, { data: sandboxRow }, invitesResult, apiKeysResult, activeSub] = await Promise.all([
-    admin.from('tenants').select('id, name, slug, region, status, is_sandbox, sandbox_of, created_at, trial_ends_at, archived_at').eq('id', id).single<TenantRow>(),
+    admin.from('tenants').select('id, name, slug, home_region, status, is_sandbox, sandbox_of, created_at, trial_ends_at, archived_at').eq('id', id).single<TenantRow>(),
     admin.from('user_profiles').select('id, first_name, last_name, role, is_active, created_at').eq('tenant_id', id).order('created_at'),
     admin.from('tenants').select('id, name, status, created_at').eq('sandbox_of', id).eq('is_sandbox', true).maybeSingle<SandboxRow>(),
     admin

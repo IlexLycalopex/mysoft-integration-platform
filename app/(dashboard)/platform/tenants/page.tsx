@@ -31,7 +31,7 @@ export default async function PlatformTenantsPage({
   const admin = createAdminClient();
   const { data: allTenants } = await admin
     .from('tenants')
-    .select('id, name, slug, region, status, is_sandbox, created_at')
+    .select('id, name, slug, home_region, status, is_sandbox, created_at')
     .order('created_at', { ascending: false });
 
   // Get user counts per tenant
@@ -108,7 +108,7 @@ export default async function PlatformTenantsPage({
                     <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--font-dm-mono)', marginTop: 2 }}>{t.slug}</div>
                   </Link>
                 </td>
-                <td style={tdStyle}><span style={{ fontSize: 13 }}>{REGION_LABELS[t.region as TenantRegion]}</span></td>
+                <td style={tdStyle}><span style={{ fontSize: 13 }}>{REGION_LABELS[t.home_region as TenantRegion]}</span></td>
                 <td style={tdStyle}><StatusBadge status={t.status as TenantStatus} /></td>
                 <td style={tdStyle}><span style={{ fontSize: 13, fontWeight: 500 }}>{countMap[t.id] ?? 0}</span></td>
                 <td style={tdStyle}>

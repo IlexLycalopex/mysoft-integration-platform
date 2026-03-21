@@ -20,6 +20,7 @@ const VALID_SECTIONS = [
   'intacct-setup',
   'troubleshooting',
   'roles-permissions',
+  'platform-admin',
 ];
 
 export default async function HelpSectionPage({ params }: Props) {

@@ -86,7 +86,7 @@ export default function NewTenantForm() {
 
       <div>
         <label style={labelStyle}>REGION <span style={{ color: 'var(--error)' }}>*</span></label>
-        <select name="region" required defaultValue="uk" style={inputStyle}>
+        <select name="home_region" required defaultValue="uk" style={inputStyle}>
           <option value="uk">United Kingdom</option>
           <option value="us">United States</option>
           <option value="eu">European Union</option>

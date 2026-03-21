@@ -25,7 +25,7 @@ export async function createTenant(
   }
 
   const name = formData.get('name') as string;
-  const region = formData.get('region') as string;
+  const home_region = formData.get('home_region') as string;
 
   if (!name?.trim()) return { error: 'Tenant name is required' };
 
@@ -34,7 +34,7 @@ export async function createTenant(
   const admin = createAdminClient();
   const { data: newTenant, error } = await admin
     .from('tenants')
-    .insert({ name: name.trim(), slug, region: region as 'uk' | 'us' | 'eu' })
+    .insert({ name: name.trim(), slug, home_region: home_region as 'uk' | 'us' | 'eu' })
     .select('id')
     .single<{ id: string }>();
 
@@ -43,7 +43,7 @@ export async function createTenant(
     return { error: error.message };
   }
 
-  await logAudit({ userId: user.id, operation: 'create_tenant', resourceType: 'tenant', resourceId: newTenant.id, newValues: { name, region } });
+  await logAudit({ userId: user.id, operation: 'create_tenant', resourceType: 'tenant', resourceId: newTenant.id, newValues: { name, home_region } });
 
   revalidatePath('/platform/tenants');
   return { success: true, tenantId: newTenant.id };
@@ -59,7 +59,7 @@ export async function updateTenant(
   if (!user) return { error: 'Not authenticated' };
 
   const name = formData.get('name') as string;
-  const region = formData.get('region') as string;
+  const home_region = formData.get('home_region') as string;
   const fileRetentionDaysRaw = formData.get('file_retention_days') as string;
   const fileRetentionDays = fileRetentionDaysRaw
     ? Math.min(3650, Math.max(30, parseInt(fileRetentionDaysRaw, 10) || 90))
@@ -79,12 +79,12 @@ export async function updateTenant(
 
   const { error } = await supabase
     .from('tenants')
-    .update({ name: name.trim(), region: region as 'uk' | 'us' | 'eu', file_retention_days: fileRetentionDays, settings: mergedSettings })
+    .update({ name: name.trim(), home_region: home_region as 'uk' | 'us' | 'eu', file_retention_days: fileRetentionDays, settings: mergedSettings })
     .eq('id', tenantId);
 
   if (error) return { error: error.message };
 
-  await logAudit({ userId: user.id, tenantId, operation: 'update_tenant', resourceType: 'tenant', resourceId: tenantId, newValues: { name, region, file_retention_days: fileRetentionDays, approval_required: approvalRequired } });
+  await logAudit({ userId: user.id, tenantId, operation: 'update_tenant', resourceType: 'tenant', resourceId: tenantId, newValues: { name, home_region, file_retention_days: fileRetentionDays, approval_required: approvalRequired } });
 
   revalidatePath('/settings');
   revalidatePath('/platform/tenants');
@@ -106,7 +106,7 @@ export async function platformUpdateTenant(
   }
 
   const name = (formData.get('name') as string)?.trim();
-  const region = formData.get('region') as string;
+  const home_region = formData.get('home_region') as string;
   const status = formData.get('status') as string;
 
   if (!name) return { error: 'Tenant name is required' };
@@ -114,12 +114,12 @@ export async function platformUpdateTenant(
   const admin = createAdminClient();
   const { error } = await admin
     .from('tenants')
-    .update({ name, region: region as 'uk' | 'us' | 'eu', status: status as 'active' | 'suspended' | 'trial' | 'offboarded' })
+    .update({ name, home_region: home_region as 'uk' | 'us' | 'eu', status: status as 'active' | 'suspended' | 'trial' | 'offboarded' })
     .eq('id', tenantId);
 
   if (error) return { error: error.message };
 
-  await logAudit({ userId: user.id, tenantId, operation: 'update_tenant', resourceType: 'tenant', resourceId: tenantId, newValues: { name, region, status } });
+  await logAudit({ userId: user.id, tenantId, operation: 'update_tenant', resourceType: 'tenant', resourceId: tenantId, newValues: { name, home_region, status } });
 
   revalidatePath('/platform/tenants');
   revalidatePath(`/platform/tenants/${tenantId}`);
@@ -195,9 +195,9 @@ export async function createSandboxTenant(
 
   const { data: prod } = await admin
     .from('tenants')
-    .select('name, slug, region')
+    .select('name, slug, home_region')
     .eq('id', productionTenantId)
-    .single<{ name: string; slug: string; region: string }>();
+    .single<{ name: string; slug: string; home_region: string }>();
 
   if (!prod) return { error: 'Production tenant not found' };
 
@@ -217,7 +217,7 @@ export async function createSandboxTenant(
     .insert({
       name: `${prod.name} (Sandbox)`,
       slug: sandboxSlug,
-      region: prod.region as 'uk' | 'us' | 'eu',
+      home_region: prod.home_region as 'uk' | 'us' | 'eu',
       status: 'active',
       is_sandbox: true,
       sandbox_of: productionTenantId,
