@@ -51,6 +51,7 @@ export default async function PlatformDashboardPage() {
     { data: apiKeys },
     { data: usageSnapshots },
     { data: allPlans },
+    { data: queueStatusData },
   ] = await Promise.all([
     admin.from('tenants').select('id, status, is_sandbox, created_at'),
     admin.from('user_profiles').select('id, is_active, created_at'),
@@ -60,6 +61,7 @@ export default async function PlatformDashboardPage() {
     admin.from('api_keys').select('id, name, key_prefix, tenant_id, last_used_at, expires_at, revoked_at').is('revoked_at', null),
     admin.from('tenant_usage_monthly').select('tenant_id, jobs_count, rows_processed, storage_bytes').eq('year_month', yearMonth),
     admin.from('plans').select('id, name, max_jobs_per_month, max_rows_per_month, max_storage_mb'),
+    (admin as any).from('upload_jobs').select('status').in('status', ['pending', 'queued', 'processing', 'awaiting_retry', 'dead_letter', 'failed']),
   ]);
 
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -161,6 +163,13 @@ export default async function PlatformDashboardPage() {
     return 'offline';
   }
 
+  // ── Job queue status ───────────────────────────────────────────────────────
+  const queueRows = (queueStatusData ?? []) as { status: string }[];
+  const queueByStatus: Record<string, number> = {};
+  for (const r of queueRows) queueByStatus[r.status] = (queueByStatus[r.status] ?? 0) + 1;
+  const dlqCount        = queueByStatus['dead_letter'] ?? 0;
+  const activeQueueCount = (queueByStatus['pending'] ?? 0) + (queueByStatus['queued'] ?? 0) + (queueByStatus['processing'] ?? 0) + (queueByStatus['awaiting_retry'] ?? 0);
+
   const activeApiKeys = ((apiKeys ?? []) as AgentKeyRow[]).filter(
     (k) => !k.expires_at || new Date(k.expires_at) > now
   );
@@ -183,6 +192,22 @@ export default async function PlatformDashboardPage() {
         <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--navy)', letterSpacing: -0.3, margin: 0 }}>Platform Overview</h1>
         <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Real-time summary across all tenants and users</p>
       </div>
+
+      {/* DLQ warning banner */}
+      {dlqCount > 0 && (
+        <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 8, padding: '12px 16px', marginBottom: 12, fontSize: 13, color: '#7F1D1D', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 16 }}>🚨</span>
+            <span>
+              <strong>{dlqCount} job{dlqCount !== 1 ? 's' : ''} in the dead letter queue.</strong>
+              {' '}These have exhausted all retry attempts and require manual review.
+            </span>
+          </div>
+          <Link href="/platform/jobs" style={{ fontSize: 12, fontWeight: 600, color: '#7F1D1D', textDecoration: 'none', border: '1px solid #FCA5A5', borderRadius: 5, padding: '5px 10px', background: '#FFF', whiteSpace: 'nowrap' }}>
+            Review DLQ →
+          </Link>
+        </div>
+      )}
 
       {/* Offline agent warning banner */}
       {offlineCount > 0 && (
@@ -211,6 +236,32 @@ export default async function PlatformDashboardPage() {
         />
         <StatCard label="Jobs This Month" value={totalJobsMonth.toLocaleString()} sub="All tenants combined" />
         <StatCard label="Rows Processed" value={totalRowsMonth.toLocaleString()} sub={`${yearMonth}`} />
+      </div>
+
+      {/* Queue status strip */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '14px 20px', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Job Queue</span>
+          {[
+            { key: 'processing',  label: 'Processing',    colour: '#1E40AF' },
+            { key: 'queued',      label: 'Queued',        colour: '#92620A' },
+            { key: 'pending',     label: 'Pending',       colour: '#64748B' },
+            { key: 'awaiting_retry', label: 'Retry',      colour: '#6B21A8' },
+            { key: 'failed',      label: 'Failed',        colour: '#DC2626' },
+            { key: 'dead_letter', label: 'DLQ',           colour: '#7F1D1D' },
+          ].map(({ key, label, colour }) => {
+            const count = queueByStatus[key] ?? 0;
+            return (
+              <span key={key} style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ fontWeight: 700, color: count > 0 ? colour : 'var(--muted)' }}>{count}</span>
+                <span style={{ fontSize: 11, color: 'var(--muted)' }}>{label}</span>
+              </span>
+            );
+          })}
+        </div>
+        <Link href="/platform/jobs" style={{ fontSize: 12, fontWeight: 500, color: 'var(--navy)', textDecoration: 'none', border: '1px solid var(--border)', borderRadius: 5, padding: '5px 12px', background: 'var(--surface)', whiteSpace: 'nowrap' }}>
+          Manage →
+        </Link>
       </div>
 
       {/* Tenant status bar */}
@@ -431,6 +482,7 @@ export default async function PlatformDashboardPage() {
         {[
           { href: '/platform/tenants', label: 'Manage Tenants' },
           { href: '/platform/users', label: 'All Users' },
+          { href: '/platform/jobs', label: 'Job Queue' },
           { href: '/platform/billing', label: 'Billing Report' },
           { href: '/audit', label: 'Audit Log' },
           { href: '/platform/settings', label: 'Platform Settings' },

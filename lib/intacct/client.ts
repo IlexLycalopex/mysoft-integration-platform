@@ -17,10 +17,8 @@ const parser = new XMLParser({
 });
 
 function buildControl(controlId: string, creds: IntacctCredentials): string {
-  // Prefer credentials passed in (sourced from platform DB or tenant record).
-  // Fall back to env vars so local dev still works without a DB entry.
-  const senderId       = creds.senderId       || process.env.INTACCT_SENDER_ID;
-  const senderPassword = creds.senderPassword || process.env.INTACCT_SENDER_PASSWORD;
+  const senderId       = creds.senderId;
+  const senderPassword = creds.senderPassword;
   if (!senderId || !senderPassword) {
     throw new Error(
       'Intacct sender credentials are not configured. ' +
