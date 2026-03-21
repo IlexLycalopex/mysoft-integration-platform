@@ -118,7 +118,19 @@ export async function GET(req: NextRequest) {
     // Non-fatal — continue with other checks
   }
 
+  // ── Stale job recovery ───────────────────────────────────────────────────────
+  // pg_cron is not available on this plan, so we drive recover_stale_jobs() from
+  // this Vercel cron instead. It uses COALESCE(claimed_at, started_at) so HTTP-push
+  // jobs (which have claimed_at = NULL) are caught alongside agent-claimed jobs.
+  try {
+    await (admin as any).rpc('recover_stale_jobs');
+  } catch {
+    // Non-fatal — stale recovery failure must not block alerting
+  }
+
   // ── Check 2: Stuck jobs ──────────────────────────────────────────────────────
+  // Alert on any jobs still in 'processing' after recovery ran. These are genuinely
+  // stuck (e.g. the worker is running but not completing) and need human attention.
   try {
     const stuckCutoff = new Date(Date.now() - STUCK_JOB_MINUTES * 60 * 1000).toISOString();
 
