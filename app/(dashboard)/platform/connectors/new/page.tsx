@@ -65,6 +65,23 @@ export default function NewConnectorPage() {
           />
         </div>
 
+        <div>
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--navy)', marginBottom: 4 }}>
+            Default List Price (£/month)
+          </label>
+          <input
+            type="number"
+            name="default_price_gbp_monthly"
+            min="0"
+            step="0.01"
+            placeholder="e.g. 150.00"
+            style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 6, boxSizing: 'border-box' }}
+          />
+          <p style={{ fontSize: 11, color: 'var(--muted)', margin: '3px 0 0' }}>
+            Catalogue price. Pre-fills when granting a licence to a tenant (overridable per tenant).
+          </p>
+        </div>
+
         <div style={{ display: 'flex', gap: 10, paddingTop: 8 }}>
           <button
             type="submit"

@@ -15,6 +15,7 @@ interface ConnectorRow {
   connector_type: string | null;
   is_active: boolean;
   is_system: boolean;
+  default_price_gbp_monthly?: number | null;
 }
 
 const LICENCE_META: Record<string, { label: string; colour: string; bg: string; border: string }> = {
@@ -71,7 +72,7 @@ export default async function TenantConnectorsPage({ params }: { params: Promise
   // All active connectors
   const { data: allConnectors } = await (admin as any)
     .from('endpoint_connectors')
-    .select('id, connector_key, display_name, description, connector_type, is_active, is_system')
+    .select('id, connector_key, display_name, description, connector_type, is_active, is_system, default_price_gbp_monthly')
     .order('sort_order', { ascending: true }) as { data: ConnectorRow[] | null };
 
   const connectors: ConnectorRow[] = allConnectors ?? [];

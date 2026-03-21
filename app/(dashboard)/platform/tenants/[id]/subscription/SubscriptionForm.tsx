@@ -10,6 +10,7 @@ interface Props {
   currentCustomPrice?: number | null;
   action: (prev: SubscriptionActionState, formData: FormData) => Promise<SubscriptionActionState>;
   heading: string;
+  hasEnabledConnector?: boolean;
 }
 
 // Format a local Date as YYYY-MM-DD without timezone conversion
@@ -39,7 +40,7 @@ function buildCommencementOptions() {
   return options;
 }
 
-export default function SubscriptionForm({ plans, currentPlanId, currentCustomPrice, action, heading }: Props) {
+export default function SubscriptionForm({ plans, currentPlanId, currentCustomPrice, action, heading, hasEnabledConnector = true }: Props) {
   const [state, formAction, isPending] = useActionState(action, {});
   const [selectedPlanId, setSelectedPlanId] = useState(currentPlanId ?? '');
   const [isFree, setIsFree] = useState(false);
@@ -67,6 +68,15 @@ export default function SubscriptionForm({ plans, currentPlanId, currentCustomPr
       {state.success && (
         <div style={{ background: '#EDFAF3', border: '1px solid #A8DFBE', borderRadius: 6, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#1A6B30', fontWeight: 500 }}>
           {isImmediate ? 'Subscription updated successfully.' : `Plan change scheduled — takes effect ${new Date(effectiveDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}.`}
+        </div>
+      )}
+      {!hasEnabledConnector && (
+        <div style={{ background: '#FFF8E6', border: '1px solid #F5D98C', borderRadius: 6, padding: '12px 14px', marginBottom: 16, fontSize: 13, color: '#7A5100' }}>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>No enabled connector licences</div>
+          <div style={{ fontSize: 12, lineHeight: 1.6 }}>
+            This tenant has no enabled connector licences. At least one connector must be licenced and enabled before a subscription can be created or changed.{' '}
+            <a href="connectors" style={{ color: '#7A5100', fontWeight: 600 }}>Go to Connectors →</a>
+          </div>
         </div>
       )}
       {state.error && (

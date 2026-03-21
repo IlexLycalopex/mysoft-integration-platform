@@ -23,6 +23,7 @@ export interface ConnectorLicenceRow {
   display_name?: string;
   connector_type?: string | null;
   is_active?: boolean;
+  connector_default_price?: number | null;
 }
 
 /** Computes the effective monthly price after applying discount_pct. */
@@ -40,17 +41,18 @@ export async function getTenantConnectorLicences(tenantId: string): Promise<Conn
     .from('tenant_connector_licences')
     .select(`
       *,
-      endpoint_connectors ( connector_key, display_name, connector_type, is_active )
+      endpoint_connectors ( connector_key, display_name, connector_type, is_active, default_price_gbp_monthly )
     `)
     .eq('tenant_id', tenantId)
     .order('enabled_at', { ascending: false });
 
   return (data ?? []).map((row: any) => ({
     ...row,
-    connector_key:   row.endpoint_connectors?.connector_key,
-    display_name:    row.endpoint_connectors?.display_name,
-    connector_type:  row.endpoint_connectors?.connector_type,
-    is_active:       row.endpoint_connectors?.is_active,
+    connector_key:          row.endpoint_connectors?.connector_key,
+    display_name:           row.endpoint_connectors?.display_name,
+    connector_type:         row.endpoint_connectors?.connector_type,
+    is_active:              row.endpoint_connectors?.is_active,
+    connector_default_price: row.endpoint_connectors?.default_price_gbp_monthly ?? null,
   }));
 }
 

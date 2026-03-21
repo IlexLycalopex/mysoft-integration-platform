@@ -1,11 +1,12 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { getEffectiveTenantId } from '@/lib/tenant-context';
 import type { UserRole } from '@/types/database';
 import NewMappingForm from './NewMappingForm';
-import { getAllObjectTypes } from '@/lib/connectors/registry';
+import { getAllObjectTypes, getLicencedConnectorsForTenant } from '@/lib/connectors/registry';
 
-export default async function NewMappingPage() {
+export default async function NewMappingPage({ searchParams }: { searchParams: Promise<{ connector_id?: string }> }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -18,7 +19,13 @@ export default async function NewMappingPage() {
   const canManage = ['platform_super_admin', 'mysoft_support_admin', 'tenant_admin', 'tenant_operator'];
   if (!profile || !canManage.includes(profile.role)) redirect('/mappings');
 
-  const objectTypes = await getAllObjectTypes();
+  const { tenantId: effectiveTenantId } = await getEffectiveTenantId(profile.tenant_id);
+  const { connector_id: defaultConnectorId } = await searchParams;
+
+  const [objectTypes, connectors] = await Promise.all([
+    getAllObjectTypes(),
+    effectiveTenantId ? getLicencedConnectorsForTenant(effectiveTenantId) : Promise.resolve([]),
+  ]);
 
   return (
     <div style={{ padding: 24, maxWidth: 900 }}>
@@ -33,7 +40,7 @@ export default async function NewMappingPage() {
           Define how your CSV columns map to Sage Intacct fields
         </p>
       </div>
-      <NewMappingForm objectTypes={objectTypes} />
+      <NewMappingForm objectTypes={objectTypes} connectors={connectors} defaultConnectorId={defaultConnectorId ?? null} />
     </div>
   );
 }

@@ -23,6 +23,7 @@ export async function createMapping(
   const transaction_type = formData.get('transaction_type') as TransactionType;
   const is_default = formData.get('is_default') === 'true';
   const mappingsJson = formData.get('column_mappings') as string;
+  const connector_id = (formData.get('connector_id') as string | null) || null;
 
   const fieldErrors: Record<string, string> = {};
   if (!name) fieldErrors.name = 'Name is required';
@@ -39,14 +40,20 @@ export async function createMapping(
 
   const admin = createAdminClient();
 
-  // If setting as default, unset any existing default for this type
+  // If setting as default, unset any existing default for this type (scoped by connector)
   if (is_default) {
-    await admin
+    let defaultClearQuery = admin
       .from('field_mappings')
       .update({ is_default: false })
       .eq('tenant_id', ctx.tenantId!)
       .eq('transaction_type', transaction_type)
       .eq('is_default', true);
+    if (connector_id) {
+      defaultClearQuery = defaultClearQuery.eq('connector_id', connector_id) as any;
+    } else {
+      defaultClearQuery = defaultClearQuery.is('connector_id', null) as any;
+    }
+    await defaultClearQuery;
   }
 
   const { data: mapping, error } = await admin
@@ -59,6 +66,7 @@ export async function createMapping(
       transaction_type,
       is_default,
       column_mappings,
+      connector_id,
     })
     .select('id')
     .single<{ id: string }>();
@@ -91,6 +99,7 @@ export async function updateMapping(
   const transaction_type = formData.get('transaction_type') as TransactionType;
   const is_default = formData.get('is_default') === 'true';
   const mappingsJson = formData.get('column_mappings') as string;
+  const connector_id = (formData.get('connector_id') as string | null) || null;
 
   const fieldErrors: Record<string, string> = {};
   if (!name) fieldErrors.name = 'Name is required';
@@ -107,18 +116,24 @@ export async function updateMapping(
   const admin = createAdminClient();
 
   if (is_default) {
-    await admin
+    let defaultClearQuery = admin
       .from('field_mappings')
       .update({ is_default: false })
       .eq('tenant_id', ctx.tenantId!)
       .eq('transaction_type', transaction_type)
       .eq('is_default', true)
       .neq('id', mappingId);
+    if (connector_id) {
+      defaultClearQuery = defaultClearQuery.eq('connector_id', connector_id) as any;
+    } else {
+      defaultClearQuery = defaultClearQuery.is('connector_id', null) as any;
+    }
+    await defaultClearQuery;
   }
 
   const { error } = await admin
     .from('field_mappings')
-    .update({ name, description, transaction_type, is_default, column_mappings })
+    .update({ name, description, transaction_type, is_default, column_mappings, connector_id })
     .eq('id', mappingId)
     .eq('tenant_id', ctx.tenantId!);
 
@@ -150,7 +165,7 @@ export async function cloneMapping(
   // Fetch source — allows templates (tenant_id IS NULL) or own tenant mappings
   const { data: source, error: fetchErr } = await (admin as any)
     .from('field_mappings')
-    .select('name, description, transaction_type, object_type_id, column_mappings, is_template, template_version')
+    .select('name, description, transaction_type, object_type_id, connector_id, column_mappings, is_template, template_version')
     .eq('id', sourceMappingId)
     .single();
 
@@ -186,6 +201,7 @@ export async function cloneMapping(
       description: source.description,
       transaction_type: source.transaction_type,
       object_type_id: source.object_type_id,
+      connector_id: source.connector_id ?? null,
       is_default: false,
       column_mappings,
       ...parentLink,

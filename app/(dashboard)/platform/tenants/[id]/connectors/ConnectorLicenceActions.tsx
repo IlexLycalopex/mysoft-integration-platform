@@ -24,6 +24,7 @@ interface ConnectorRow {
   display_name: string;
   connector_type: string | null;
   is_active: boolean;
+  default_price_gbp_monthly?: number | null;
 }
 
 interface Props {
@@ -155,7 +156,7 @@ export default function ConnectorLicenceActions({ mode, tenantId, licence, conne
                     min="0"
                     step="0.01"
                     placeholder="e.g. 150.00"
-                    defaultValue={mode === 'edit' ? (licence?.price_gbp_monthly ?? '') : ''}
+                    defaultValue={mode === 'edit' ? (licence?.price_gbp_monthly ?? '') : (connector?.default_price_gbp_monthly ?? '')}
                     style={inputStyle}
                   />
                 </div>

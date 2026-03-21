@@ -82,6 +82,18 @@ export async function createOrChangeSubscription(
 
   const admin = createAdminClient();
 
+  // Require at least one enabled connector licence
+  const { data: enabledLicences } = await (admin as any)
+    .from('tenant_connector_licences')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('is_enabled', true)
+    .limit(1);
+
+  if (!enabledLicences || enabledLicences.length === 0) {
+    return { error: 'This tenant has no enabled connector licences. At least one connector must be licenced before creating or changing a subscription.' };
+  }
+
   // Verify plan exists
   const { data: plan } = await admin
     .from('plans')

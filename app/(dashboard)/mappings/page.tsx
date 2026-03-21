@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getEffectiveTenantId } from '@/lib/tenant-context';
 import type { UserRole, TransactionType } from '@/types/database';
 import { TRANSACTION_TYPE_LABELS } from '@/lib/intacct-fields';
-import { getAllObjectTypes } from '@/lib/connectors/registry';
+import { getAllObjectTypes, getLicencedConnectorsForTenant } from '@/lib/connectors/registry';
 import CloneMappingButton from './CloneMappingButton';
 import DownloadTemplateButton from './DownloadTemplateButton';
 
@@ -19,11 +19,12 @@ interface MappingRow {
   column_mappings: unknown[];
   sync_status: 'up_to_date' | 'update_available' | 'conflict' | 'diverged' | null;
   inheritance_mode: 'standalone' | 'linked' | 'inherit';
+  connector_id: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export default async function MappingsPage() {
+export default async function MappingsPage({ searchParams }: { searchParams: Promise<{ connector?: string }> }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -38,6 +39,8 @@ export default async function MappingsPage() {
   // Platform admins manage templates from their own dedicated page
   if (['platform_super_admin', 'mysoft_support_admin'].includes(profile.role)) redirect('/platform/mappings');
 
+  const { connector: filterConnectorId } = await searchParams;
+
   const canManage = ['tenant_admin', 'tenant_operator'].includes(profile.role);
 
   const { tenantId: effectiveTenantId } = await getEffectiveTenantId(profile.tenant_id);
@@ -47,13 +50,19 @@ export default async function MappingsPage() {
   // Tenant mappings
   if (!effectiveTenantId) redirect('/dashboard');
 
-  const tenantQuery = admin
+  const licencedConnectors = await getLicencedConnectorsForTenant(effectiveTenantId);
+
+  let tenantQuery = admin
     .from('field_mappings')
-    .select('id, name, description, transaction_type, is_default, is_template, column_mappings, sync_status, inheritance_mode, created_at, updated_at')
+    .select('id, name, description, transaction_type, is_default, is_template, column_mappings, sync_status, inheritance_mode, connector_id, created_at, updated_at')
     .eq('is_template', false)
     .eq('tenant_id', effectiveTenantId)
     .order('transaction_type')
     .order('name');
+
+  if (filterConnectorId) {
+    tenantQuery = tenantQuery.eq('connector_id', filterConnectorId) as any;
+  }
 
   // System templates — only published ones visible to tenant users
   const templatesQuery = admin
@@ -117,6 +126,37 @@ export default async function MappingsPage() {
           </Link>
         )}
       </div>
+
+      {/* Connector filter tabs */}
+      {licencedConnectors.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
+          <Link
+            href="/mappings"
+            style={{
+              fontSize: 12, fontWeight: 500, padding: '5px 12px', borderRadius: 5,
+              border: '1px solid var(--border)', textDecoration: 'none',
+              background: !filterConnectorId ? 'var(--navy)' : 'var(--surface)',
+              color: !filterConnectorId ? '#fff' : 'var(--muted)',
+            }}
+          >
+            All
+          </Link>
+          {licencedConnectors.map((c) => (
+            <Link
+              key={c.id}
+              href={`/mappings?connector=${c.id}`}
+              style={{
+                fontSize: 12, fontWeight: 500, padding: '5px 12px', borderRadius: 5,
+                border: '1px solid var(--border)', textDecoration: 'none',
+                background: filterConnectorId === c.id ? 'var(--navy)' : 'var(--surface)',
+                color: filterConnectorId === c.id ? '#fff' : 'var(--muted)',
+              }}
+            >
+              {c.displayName}
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* Sync notification strip */}
       {(updatesAvailable > 0 || conflictsCount > 0) && (

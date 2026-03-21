@@ -24,6 +24,8 @@ export async function createConnector(
   const connectorKey = (formData.get('connector_key') as string)?.trim().toLowerCase().replace(/\s+/g, '_');
   const displayName  = (formData.get('display_name') as string)?.trim();
   const description  = (formData.get('description') as string)?.trim() || null;
+  const defaultPriceRaw = (formData.get('default_price_gbp_monthly') as string)?.trim();
+  const defaultPrice = defaultPriceRaw && defaultPriceRaw !== '' ? parseFloat(defaultPriceRaw) : null;
 
   const fieldErrors: Record<string, string> = {};
   if (!connectorKey) fieldErrors.connector_key = 'Connector key is required';
@@ -37,6 +39,7 @@ export async function createConnector(
       connector_key: connectorKey,
       display_name: displayName,
       description,
+      default_price_gbp_monthly: defaultPrice,
       is_system: false,
       is_active: true,
       capabilities: {},
@@ -73,6 +76,8 @@ export async function updateConnector(
   const displayName   = (formData.get('display_name') as string)?.trim();
   const description   = (formData.get('description') as string)?.trim() || null;
   const isActive      = formData.get('is_active') !== 'false';
+  const defaultPriceRaw = (formData.get('default_price_gbp_monthly') as string)?.trim();
+  const defaultPrice = defaultPriceRaw && defaultPriceRaw !== '' ? parseFloat(defaultPriceRaw) : null;
 
   const fieldErrors: Record<string, string> = {};
   if (!displayName) fieldErrors.display_name = 'Display name is required';
@@ -81,7 +86,7 @@ export async function updateConnector(
   const admin = createAdminClient();
   const { error } = await (admin as any)
     .from('endpoint_connectors')
-    .update({ display_name: displayName, description, is_active: isActive })
+    .update({ display_name: displayName, description, is_active: isActive, default_price_gbp_monthly: defaultPrice })
     .eq('id', connectorId)
     .eq('is_system', false); // system connectors cannot be edited via UI
 

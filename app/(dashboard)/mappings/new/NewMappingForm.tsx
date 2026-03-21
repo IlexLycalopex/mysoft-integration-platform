@@ -3,9 +3,17 @@
 import { useActionState } from 'react';
 import { createMapping } from '@/lib/actions/mappings';
 import MappingEditor from '../MappingEditor';
-import type { ObjectTypeOption } from '@/lib/connectors/registry';
+import type { ObjectTypeOption, LicencedConnectorOption } from '@/lib/connectors/registry';
 
-export default function NewMappingForm({ objectTypes }: { objectTypes: ObjectTypeOption[] }) {
+export default function NewMappingForm({
+  objectTypes,
+  connectors,
+  defaultConnectorId,
+}: {
+  objectTypes: ObjectTypeOption[];
+  connectors: LicencedConnectorOption[];
+  defaultConnectorId?: string | null;
+}) {
   const [state, action, pending] = useActionState(createMapping, {});
 
   return (
@@ -16,6 +24,8 @@ export default function NewMappingForm({ objectTypes }: { objectTypes: ObjectTyp
       fieldErrors={state.fieldErrors}
       submitLabel="Create mapping"
       objectTypes={objectTypes}
+      connectors={connectors}
+      defaultConnectorId={defaultConnectorId}
     />
   );
 }

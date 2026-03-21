@@ -4,7 +4,7 @@ import { useState, useId } from 'react';
 import type { TransactionType, ColumnMappingEntry, MappingTransform } from '@/types/database';
 import type { ColumnMappingEntryV2 } from '@/lib/mapping-engine/types';
 import { INTACCT_FIELDS, TRANSACTION_TYPE_LABELS, TRANSFORM_LABELS } from '@/lib/intacct-fields';
-import type { ObjectTypeOption } from '@/lib/connectors/registry';
+import type { ObjectTypeOption, LicencedConnectorOption } from '@/lib/connectors/registry';
 import { normaliseEntry, blankV2Entry } from '@/lib/mapping-engine/compat';
 import PipelineEditor from '@/components/mappings/PipelineEditor';
 import InlineTestPanel from '@/components/mappings/InlineTestPanel';
@@ -26,6 +26,9 @@ interface Props {
   onDelete?: () => void;
   isTemplate?: boolean;
   objectTypes?: ObjectTypeOption[];
+  connectors?: LicencedConnectorOption[];
+  defaultConnectorId?: string | null;
+  initialConnectorId?: string | null;
 }
 
 const FALLBACK_TYPES: ObjectTypeOption[] = Object.entries(TRANSACTION_TYPE_LABELS).map(([key, displayName], i) => ({
@@ -51,6 +54,9 @@ export default function MappingEditor({
   onDelete,
   isTemplate = false,
   objectTypes,
+  connectors,
+  defaultConnectorId,
+  initialConnectorId,
 }: Props) {
   const uid = useId();
 
@@ -61,6 +67,7 @@ export default function MappingEditor({
   const [description, setDescription] = useState(initialDescription);
   const [txType, setTxType] = useState<string>(initialTransactionType ?? defaultType);
   const [isDefault, setIsDefault] = useState(initialIsDefault);
+  const [connectorId, setConnectorId] = useState<string>(initialConnectorId ?? defaultConnectorId ?? '');
 
   // Normalise all entries to v2 on mount
   const [rows, setRows] = useState<ColumnMappingEntryV2[]>(() =>
@@ -104,6 +111,9 @@ export default function MappingEditor({
     fd.set('column_mappings', JSON.stringify(rows));
     fd.set('is_default', String(isDefault));
     fd.set('mapping_version', '2');
+    if (connectorId) {
+      fd.set('connector_id', connectorId);
+    }
     onSubmit(fd);
   }
 
@@ -137,6 +147,25 @@ export default function MappingEditor({
       {/* ── Mapping details ───────────────────────────────────────────────── */}
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: 20, marginBottom: 16 }}>
         <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', margin: '0 0 16px' }}>Mapping details</h3>
+        {connectors && connectors.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <label htmlFor={`${uid}-connector`} style={labelStyle}>Connector</label>
+            <select
+              id={`${uid}-connector`}
+              value={connectorId}
+              onChange={e => setConnectorId(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">— None / all connectors —</option>
+              {connectors.map(c => (
+                <option key={c.id} value={c.id}>{c.displayName}</option>
+              ))}
+            </select>
+            <p style={{ fontSize: 11, color: 'var(--muted)', margin: '3px 0 0' }}>
+              Associate this mapping with a specific connector (optional).
+            </p>
+          </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
             <label htmlFor={`${uid}-name`} style={labelStyle}>Name *</label>

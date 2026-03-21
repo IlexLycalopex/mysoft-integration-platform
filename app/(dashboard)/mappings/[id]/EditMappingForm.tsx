@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { updateMapping, deleteMapping } from '@/lib/actions/mappings';
 import MappingEditor from '../MappingEditor';
 import type { ColumnMappingEntry } from '@/types/database';
-import type { ObjectTypeOption } from '@/lib/connectors/registry';
+import type { ObjectTypeOption, LicencedConnectorOption } from '@/lib/connectors/registry';
 
 interface Props {
   mappingId: string;
@@ -15,6 +15,8 @@ interface Props {
   initialIsDefault: boolean;
   initialColumnMappings: ColumnMappingEntry[];
   objectTypes: ObjectTypeOption[];
+  connectors?: LicencedConnectorOption[];
+  initialConnectorId?: string | null;
 }
 
 export default function EditMappingForm({
@@ -25,6 +27,8 @@ export default function EditMappingForm({
   initialIsDefault,
   initialColumnMappings,
   objectTypes,
+  connectors,
+  initialConnectorId,
 }: Props) {
   const router = useRouter();
   const boundAction = updateMapping.bind(null, mappingId);
@@ -61,6 +65,8 @@ export default function EditMappingForm({
       showDeleteButton
       onDelete={handleDelete}
       objectTypes={objectTypes}
+      connectors={connectors}
+      initialConnectorId={initialConnectorId}
     />
   );
 }

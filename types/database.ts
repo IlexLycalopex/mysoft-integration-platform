@@ -647,6 +647,7 @@ export interface Database {
           description: string | null;
           transaction_type: TransactionType | null;
           object_type_id: string | null;
+          connector_id: string | null;
           is_default: boolean;
           is_template: boolean;
           template_status: 'draft' | 'published';
@@ -668,6 +669,7 @@ export interface Database {
           description?: string | null;
           transaction_type?: TransactionType | null;
           object_type_id?: string | null;
+          connector_id?: string | null;
           is_default?: boolean;
           is_template?: boolean;
           template_status?: 'draft' | 'published';
@@ -689,6 +691,7 @@ export interface Database {
           description?: string | null;
           transaction_type?: TransactionType | null;
           object_type_id?: string | null;
+          connector_id?: string | null;
           is_default?: boolean;
           is_template?: boolean;
           template_status?: 'draft' | 'published';
@@ -718,6 +721,7 @@ export interface Database {
           capabilities: Record<string, unknown>;
           sort_order: number;
           created_by: string | null;
+          default_price_gbp_monthly: number | null;
           created_at: string;
         };
         Insert: {
@@ -732,6 +736,7 @@ export interface Database {
           capabilities?: Record<string, unknown>;
           sort_order?: number;
           created_by?: string | null;
+          default_price_gbp_monthly?: number | null;
           created_at?: string;
         };
         Update: {
@@ -746,6 +751,7 @@ export interface Database {
           capabilities?: Record<string, unknown>;
           sort_order?: number;
           created_by?: string | null;
+          default_price_gbp_monthly?: number | null;
           created_at?: string;
         };
         Relationships: [];

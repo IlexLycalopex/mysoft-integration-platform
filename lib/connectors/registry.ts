@@ -227,6 +227,34 @@ export async function resolveFieldsForObjectType(
   return [];
 }
 
+// ── Licenced connectors for tenant ─────────────────────────────────────────────
+
+export interface LicencedConnectorOption {
+  id: string;
+  connectorKey: string;
+  displayName: string;
+}
+
+export async function getLicencedConnectorsForTenant(tenantId: string): Promise<LicencedConnectorOption[]> {
+  const admin = createAdminClient();
+  const { data } = await (admin as any)
+    .from('tenant_connector_licences')
+    .select('connector_id, endpoint_connectors(id, connector_key, display_name)')
+    .eq('tenant_id', tenantId)
+    .eq('is_enabled', true);
+
+  if (!data) return [];
+
+  return (data as any[])
+    .map((row: any) => row.endpoint_connectors)
+    .filter(Boolean)
+    .map((c: any) => ({
+      id: c.id,
+      connectorKey: c.connector_key,
+      displayName: c.display_name,
+    }));
+}
+
 // Synchronous version using pre-loaded registry data (for client components
 // where async is not available at render time).
 export function resolveFieldsSync(

@@ -91,6 +91,8 @@ export default async function SubscriptionPage({ params }: { params: Promise<{ i
     .filter((l) => l.is_enabled && l.price_gbp_monthly != null && l.price_gbp_monthly > 0)
     .reduce((sum, l) => sum + (l.price_gbp_monthly ?? 0), 0);
 
+  const hasEnabledConnector = connectorLicences.some((l) => l.is_enabled);
+
   // Bound server actions
   const boundCreate = createOrChangeSubscription.bind(null, id);
   const boundCancel = activeSub
@@ -245,6 +247,7 @@ export default async function SubscriptionPage({ params }: { params: Promise<{ i
             currentCustomPrice={activeSub?.plan_price_gbp ?? null}
             action={boundCreate}
             heading={activeSub ? 'Change Plan' : 'Create Subscription'}
+            hasEnabledConnector={hasEnabledConnector}
           />
         </div>
       )}

@@ -8,7 +8,8 @@ import EditMappingForm from './EditMappingForm';
 import CloneMappingButton from '../CloneMappingButton';
 import TemplateSyncBanner from '../TemplateSyncBanner';
 import type { ColumnMappingEntryV2 } from '@/lib/mapping-engine/types';
-import { getAllObjectTypes } from '@/lib/connectors/registry';
+import { getAllObjectTypes, getLicencedConnectorsForTenant } from '@/lib/connectors/registry';
+import { getEffectiveTenantId } from '@/lib/tenant-context';
 
 interface MappingFull {
   id: string;
@@ -25,6 +26,7 @@ interface MappingFull {
   inheritance_mode: InheritanceMode;
   sync_status: SyncStatus | null;
   last_synced_at: string | null;
+  connector_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -56,7 +58,7 @@ export default async function EditMappingPage({ params }: { params: Promise<{ id
   const admin = createAdminClient();
   const { data: mapping } = await (admin as any)
     .from('field_mappings')
-    .select('id, name, description, transaction_type, is_default, is_template, column_mappings, tenant_id, template_version, parent_template_id, parent_template_version, inheritance_mode, sync_status, last_synced_at, created_at, updated_at')
+    .select('id, name, description, transaction_type, is_default, is_template, column_mappings, tenant_id, template_version, parent_template_id, parent_template_version, inheritance_mode, sync_status, last_synced_at, connector_id, created_at, updated_at')
     .eq('id', id)
     .single() as { data: MappingFull | null };
 
@@ -69,7 +71,12 @@ export default async function EditMappingPage({ params }: { params: Promise<{ id
 
   const isReadOnly = mapping.is_template || !canManage;
 
-  const objectTypes = await getAllObjectTypes();
+  const { tenantId: effectiveTenantId } = await getEffectiveTenantId(profile.tenant_id);
+
+  const [objectTypes, licencedConnectors] = await Promise.all([
+    getAllObjectTypes(),
+    effectiveTenantId ? getLicencedConnectorsForTenant(effectiveTenantId) : Promise.resolve([]),
+  ]);
 
   // For sync banner — load parent template's current column_mappings if update available
   let parentTemplateName: string | null = null;
@@ -197,6 +204,8 @@ export default async function EditMappingPage({ params }: { params: Promise<{ id
           initialIsDefault={mapping.is_default}
           initialColumnMappings={mapping.column_mappings}
           objectTypes={objectTypes}
+          connectors={licencedConnectors}
+          initialConnectorId={mapping.connector_id}
         />
       )}
     </div>
