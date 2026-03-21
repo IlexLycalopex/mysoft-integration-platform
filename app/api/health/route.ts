@@ -11,6 +11,7 @@
 
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getPlatformSettings } from '@/lib/actions/platform-settings';
 
 interface ComponentCheck {
   status: 'ok' | 'degraded' | 'unhealthy';
@@ -24,6 +25,10 @@ export async function GET() {
 
   try {
     const admin = createAdminClient();
+    const settings = await getPlatformSettings();
+    const dlqThreshold = Number(settings['health.dlq_threshold'] ?? 10);
+    const errorRateThreshold = Number(settings['health.error_rate_pct'] ?? 50);
+    const agentOfflineMinutes = Number(settings['health.agent_offline_minutes'] ?? 15);
 
     // ── 1. Database reachability ───────────────────────────────────────────
     const { error: dbError } = await (admin as any).from('tenants').select('id').limit(1);
@@ -51,7 +56,7 @@ export async function GET() {
 
     // Check for stuck jobs (processing for > 15 min via updated_at proxy via count)
     // We flag as degraded if DLQ is growing (>5 jobs) or processing queue is large
-    const queueStatus: 'ok' | 'degraded' = dlqCount > 10 ? 'degraded' : 'ok';
+    const queueStatus: 'ok' | 'degraded' = dlqCount > dlqThreshold ? 'degraded' : 'ok';
     if (queueStatus === 'degraded' && overallStatus === 'ok') overallStatus = 'degraded';
 
     checks.jobQueue = {
@@ -76,7 +81,7 @@ export async function GET() {
     const totalRecent = recentRows.length;
     const failedRecent = recentRows.filter((j) => j.status === 'failed' || j.status === 'dead_letter').length;
     const errorRatePct = totalRecent > 0 ? Math.round((failedRecent / totalRecent) * 100) : 0;
-    const errorRateStatus: 'ok' | 'degraded' = errorRatePct >= 50 ? 'degraded' : 'ok';
+    const errorRateStatus: 'ok' | 'degraded' = errorRatePct >= errorRateThreshold ? 'degraded' : 'ok';
     if (errorRateStatus === 'degraded' && overallStatus === 'ok') overallStatus = 'degraded';
 
     checks.errorRate = {
@@ -87,7 +92,7 @@ export async function GET() {
     };
 
     // ── 4. Agent connectivity ─────────────────────────────────────────────
-    const fifteenMinAgo = new Date(now.getTime() - 15 * 60 * 1000).toISOString();
+    const fifteenMinAgo = new Date(now.getTime() - agentOfflineMinutes * 60 * 1000).toISOString();
     const { data: agentKeys } = await (admin as any)
       .from('api_keys')
       .select('id, last_used_at')

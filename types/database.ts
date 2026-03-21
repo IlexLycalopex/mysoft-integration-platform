@@ -690,6 +690,30 @@ export interface Database {
         };
         Relationships: [];
       };
+      platform_settings: {
+        Row: {
+          key: string;
+          value: unknown;
+          description: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          key: string;
+          value: unknown;
+          description?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          key?: string;
+          value?: unknown;
+          description?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       tenant_credentials: {
         Row: {
           id: string;
