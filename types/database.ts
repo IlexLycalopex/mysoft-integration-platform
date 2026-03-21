@@ -301,7 +301,7 @@ export interface Database {
           error_message: string | null;
           sha256: string | null;
           watcher_config_id: string | null;
-          source_type: 'manual' | 'agent' | 'sftp_poll' | 'http_push' | null;
+          source_type: 'manual' | 'agent' | 'sftp_poll' | 'http_push' | 'json_push' | null;
           auto_process: boolean;
           dry_run: boolean;
           requires_approval: boolean;
@@ -315,6 +315,13 @@ export interface Database {
           file_deleted_at: string | null;
           entity_id_override: string | null;
           entity_id_used: string | null;
+          // migration 038 — supporting document attachment
+          attachment_storage_path: string | null;
+          attachment_filename: string | null;
+          attachment_mime_type: string | null;
+          attachment_file_size: number | null;
+          supdoc_id: string | null;
+          supdoc_folder_name: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -336,7 +343,7 @@ export interface Database {
           error_message?: string | null;
           sha256?: string | null;
           watcher_config_id?: string | null;
-          source_type?: 'manual' | 'agent' | 'sftp_poll' | 'http_push' | null;
+          source_type?: 'manual' | 'agent' | 'sftp_poll' | 'http_push' | 'json_push' | null;
           auto_process?: boolean;
           dry_run?: boolean;
           requires_approval?: boolean;
@@ -350,6 +357,13 @@ export interface Database {
           file_deleted_at?: string | null;
           entity_id_override?: string | null;
           entity_id_used?: string | null;
+          // migration 038 — supporting document attachment
+          attachment_storage_path?: string | null;
+          attachment_filename?: string | null;
+          attachment_mime_type?: string | null;
+          attachment_file_size?: number | null;
+          supdoc_id?: string | null;
+          supdoc_folder_name?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -371,7 +385,7 @@ export interface Database {
           error_message?: string | null;
           sha256?: string | null;
           watcher_config_id?: string | null;
-          source_type?: 'manual' | 'agent' | 'sftp_poll' | 'http_push' | null;
+          source_type?: 'manual' | 'agent' | 'sftp_poll' | 'http_push' | 'json_push' | null;
           auto_process?: boolean;
           dry_run?: boolean;
           requires_approval?: boolean;
@@ -385,6 +399,13 @@ export interface Database {
           file_deleted_at?: string | null;
           entity_id_override?: string | null;
           entity_id_used?: string | null;
+          // migration 038 — supporting document attachment
+          attachment_storage_path?: string | null;
+          attachment_filename?: string | null;
+          attachment_mime_type?: string | null;
+          attachment_file_size?: number | null;
+          supdoc_id?: string | null;
+          supdoc_folder_name?: string | null;
           created_at?: string;
           updated_at?: string;
         };
