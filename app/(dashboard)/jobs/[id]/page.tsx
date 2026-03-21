@@ -82,6 +82,15 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
   const { data: job } = await baseQuery.single<JobDetail>();
   if (!job) notFound();
 
+  // Load job events from the audit trail (new logging system)
+  const { data: jobEvents } = await admin
+    .from('job_events')
+    .select('id, event_type, severity, message, metadata_json, created_at')
+    .eq('job_id', id)
+    .order('created_at', { ascending: true })
+    .limit(500)
+    .returns<{ id: string; event_type: string; severity: string; message: string; metadata_json: Record<string, unknown> | null; created_at: string }[]>();
+
   // Load job errors
   const { data: jobErrors } = await admin
     .from('job_errors')
@@ -127,7 +136,17 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
     } catch { rejectedByEmail = job.rejected_by; }
   }
 
-  const log: ProcessingLogEntry[] = Array.isArray(job.processing_log) ? job.processing_log as ProcessingLogEntry[] : [];
+  // Build the processing log: prefer job_events (new system), fall back to legacy processing_log column
+  const log: ProcessingLogEntry[] = jobEvents && jobEvents.length > 0
+    ? jobEvents.map(e => ({
+        t: e.created_at,
+        level: (e.severity as ProcessingLogEntry['level']) ?? 'info',
+        msg: e.message,
+        data: e.metadata_json ?? undefined,
+      }))
+    : Array.isArray(job.processing_log)
+      ? job.processing_log as ProcessingLogEntry[]
+      : [];
 
   return (
     <div style={{ padding: 24, maxWidth: 960, margin: '0 auto' }}>
