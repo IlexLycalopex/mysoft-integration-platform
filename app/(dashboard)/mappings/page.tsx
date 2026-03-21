@@ -129,32 +129,37 @@ export default async function MappingsPage({ searchParams }: { searchParams: Pro
 
       {/* Connector filter tabs */}
       {licencedConnectors.length > 0 && (
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 24 }}>
           <Link
             href="/mappings"
             style={{
-              fontSize: 12, fontWeight: 500, padding: '5px 12px', borderRadius: 5,
-              border: '1px solid var(--border)', textDecoration: 'none',
-              background: !filterConnectorId ? 'var(--navy)' : 'var(--surface)',
-              color: !filterConnectorId ? '#fff' : 'var(--muted)',
+              fontSize: 13, fontWeight: !filterConnectorId ? 600 : 400,
+              color: !filterConnectorId ? 'var(--blue)' : 'var(--muted)',
+              textDecoration: 'none', padding: '8px 16px',
+              borderBottom: !filterConnectorId ? '2px solid var(--blue)' : '2px solid transparent',
+              marginBottom: -1, whiteSpace: 'nowrap',
             }}
           >
             All
           </Link>
-          {licencedConnectors.map((c) => (
-            <Link
-              key={c.id}
-              href={`/mappings?connector=${c.id}`}
-              style={{
-                fontSize: 12, fontWeight: 500, padding: '5px 12px', borderRadius: 5,
-                border: '1px solid var(--border)', textDecoration: 'none',
-                background: filterConnectorId === c.id ? 'var(--navy)' : 'var(--surface)',
-                color: filterConnectorId === c.id ? '#fff' : 'var(--muted)',
-              }}
-            >
-              {c.displayName}
-            </Link>
-          ))}
+          {licencedConnectors.map((c) => {
+            const isActive = filterConnectorId === c.id;
+            return (
+              <Link
+                key={c.id}
+                href={`/mappings?connector=${c.id}`}
+                style={{
+                  fontSize: 13, fontWeight: isActive ? 600 : 400,
+                  color: isActive ? 'var(--blue)' : 'var(--muted)',
+                  textDecoration: 'none', padding: '8px 16px',
+                  borderBottom: isActive ? '2px solid var(--blue)' : '2px solid transparent',
+                  marginBottom: -1, whiteSpace: 'nowrap',
+                }}
+              >
+                {c.displayName}
+              </Link>
+            );
+          })}
         </div>
       )}
 

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { UserRole } from '@/types/database';
 import EditConnectorForm from './EditConnectorForm';
+import ConnectorTabNav from '@/components/platform/ConnectorTabNav';
 
 interface ConnectorDetail {
   id: string;
@@ -44,47 +45,32 @@ export default async function ConnectorDetailPage({ params }: { params: Promise<
   if (!connector) notFound();
 
   return (
-    <div style={{ padding: 24, maxWidth: 560 }}>
-      <div style={{ marginBottom: 24 }}>
+    <div style={{ padding: 24, maxWidth: 640 }}>
+      <div style={{ marginBottom: 4 }}>
         <Link href="/platform/connectors" style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'none' }}>
           ← Connectors
         </Link>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '8px 0 4px' }}>
-          <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--navy)', letterSpacing: -0.3, margin: 0 }}>
-            {connector.display_name}
-          </h1>
-          {connector.is_system && (
-            <span style={{ fontSize: 11, fontWeight: 500, background: '#E8F0FE', color: '#1967D2', borderRadius: 4, padding: '2px 6px' }}>
-              System
-            </span>
-          )}
-          {!connector.is_active && (
-            <span style={{ fontSize: 11, fontWeight: 500, background: '#F1F5F9', color: '#64748B', border: '1px solid #CBD5E1', borderRadius: 4, padding: '2px 6px' }}>
-              Inactive
-            </span>
-          )}
-        </div>
-        <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0, fontFamily: 'var(--font-dm-mono)' }}>
-          {connector.connector_key}
-        </p>
       </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '8px 0 2px' }}>
+        <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--navy)', letterSpacing: -0.3, margin: 0 }}>
+          {connector.display_name}
+        </h1>
+        {connector.is_system && (
+          <span style={{ fontSize: 11, fontWeight: 500, background: '#E8F0FE', color: '#1967D2', borderRadius: 4, padding: '2px 6px' }}>
+            System
+          </span>
+        )}
+        {!connector.is_active && (
+          <span style={{ fontSize: 11, fontWeight: 500, background: '#F1F5F9', color: '#64748B', border: '1px solid #CBD5E1', borderRadius: 4, padding: '2px 6px' }}>
+            Inactive
+          </span>
+        )}
+      </div>
+      <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 20px', fontFamily: 'var(--font-dm-mono)' }}>
+        {connector.connector_key}
+      </p>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-        <Link href={`/platform/connectors/${id}/object-types`} style={{
-          fontSize: 12, fontWeight: 500, color: 'var(--navy)',
-          padding: '6px 14px', borderRadius: 5, border: '1px solid var(--border)',
-          textDecoration: 'none', background: 'var(--surface)',
-        }}>
-          Object types →
-        </Link>
-        <Link href={`/platform/connectors/${id}/mappings`} style={{
-          fontSize: 12, fontWeight: 500, color: 'var(--navy)',
-          padding: '6px 14px', borderRadius: 5, border: '1px solid var(--border)',
-          textDecoration: 'none', background: 'var(--surface)',
-        }}>
-          Mappings →
-        </Link>
-      </div>
+      <ConnectorTabNav connectorId={id} active="details" />
 
       {canEdit ? (
         <EditConnectorForm connector={connector} />

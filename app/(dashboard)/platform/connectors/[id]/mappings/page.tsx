@@ -6,6 +6,7 @@ import { TRANSACTION_TYPE_LABELS } from '@/lib/intacct-fields';
 import type { UserRole, TransactionType } from '@/types/database';
 import { getAllObjectTypes } from '@/lib/connectors/registry';
 import TemplateStatusButton from '../../../mappings/TemplateStatusButton';
+import ConnectorTabNav from '@/components/platform/ConnectorTabNav';
 
 interface ConnectorDetail {
   id: string;
@@ -111,123 +112,29 @@ export default async function ConnectorMappingsPage({
 
   return (
     <div style={{ padding: 24 }}>
-      {/* Breadcrumb */}
-      <div style={{ marginBottom: 20 }}>
-        <Link
-          href="/platform/connectors"
-          style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'none' }}
-        >
+      <div style={{ marginBottom: 4 }}>
+        <Link href="/platform/connectors" style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'none' }}>
           ← Connectors
         </Link>
-        <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-          {' '}/ {connector.display_name}
-        </span>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            margin: '8px 0 4px',
-          }}
-        >
-          <h1
-            style={{
-              fontSize: 20,
-              fontWeight: 600,
-              color: 'var(--navy)',
-              letterSpacing: -0.3,
-              margin: 0,
-            }}
-          >
-            {connector.display_name}
-          </h1>
-        </div>
-        <p
-          style={{
-            fontSize: 12,
-            color: 'var(--muted)',
-            margin: 0,
-            fontFamily: 'var(--font-dm-mono)',
-          }}
-        >
-          {connector.connector_key}
+      </div>
+      <div style={{ margin: '8px 0 2px' }}>
+        <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--navy)', letterSpacing: -0.3, margin: 0 }}>
+          {connector.display_name}
+        </h1>
+      </div>
+      <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 20px', fontFamily: 'var(--font-dm-mono)' }}>
+        {connector.connector_key}
+      </p>
+
+      <ConnectorTabNav connectorId={id} active="mappings" />
+
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
+        <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>
+          {(templates ?? []).length} template
+          {(templates ?? []).length !== 1 ? 's' : ''}
+          {totalPublished > 0 && ` · ${totalPublished} published`}
+          {totalDraft > 0 && ` · ${totalDraft} draft`}
         </p>
-      </div>
-
-      {/* Tab strip */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-        <Link
-          href={`/platform/connectors/${id}`}
-          style={{
-            fontSize: 12,
-            fontWeight: 500,
-            color: 'var(--muted)',
-            padding: '6px 14px',
-            borderRadius: 5,
-            border: '1px solid var(--border)',
-            textDecoration: 'none',
-            background: 'var(--surface)',
-          }}
-        >
-          Details
-        </Link>
-        <Link
-          href={`/platform/connectors/${id}/object-types`}
-          style={{
-            fontSize: 12,
-            fontWeight: 500,
-            color: 'var(--muted)',
-            padding: '6px 14px',
-            borderRadius: 5,
-            border: '1px solid var(--border)',
-            textDecoration: 'none',
-            background: 'var(--surface)',
-          }}
-        >
-          Object Types
-        </Link>
-        <span
-          style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color: 'var(--navy)',
-            padding: '6px 14px',
-            borderRadius: 5,
-            border: '1px solid var(--navy)',
-            background: 'var(--surface)',
-          }}
-        >
-          Mappings
-        </span>
-      </div>
-
-      {/* Header row */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          marginBottom: 20,
-        }}
-      >
-        <div>
-          <h2
-            style={{
-              fontSize: 16,
-              fontWeight: 600,
-              color: 'var(--navy)',
-              margin: 0,
-            }}
-          >
-            Mapping Templates
-          </h2>
-          <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
-            {(templates ?? []).length} template
-            {(templates ?? []).length !== 1 ? 's' : ''}
-            {totalPublished > 0 && ` · ${totalPublished} published`}
-            {totalDraft > 0 && ` · ${totalDraft} draft`}
-          </p>
-        </div>
         {canEdit && (
           <Link
             href={`/platform/connectors/${id}/mappings/new`}

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { UserRole } from '@/types/database';
 import DeleteObjectTypeButton from './DeleteObjectTypeButton';
+import ConnectorTabNav from '@/components/platform/ConnectorTabNav';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -45,21 +46,26 @@ export default async function ObjectTypesPage({ params }: PageProps) {
 
   return (
     <div style={{ padding: 24 }}>
-      <div style={{ marginBottom: 6 }}>
+      <div style={{ marginBottom: 4 }}>
         <Link href="/platform/connectors" style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'none' }}>
           ← Connectors
         </Link>
       </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '8px 0 2px' }}>
+        <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--navy)', letterSpacing: -0.3, margin: 0 }}>
+          {connector.display_name}
+        </h1>
+      </div>
+      <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 20px', fontFamily: 'var(--font-dm-mono)' }}>
+        {connector.connector_key}
+      </p>
 
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--navy)', letterSpacing: -0.3, margin: 0 }}>
-            {connector.display_name} — Object Types
-          </h1>
-          <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
-            {rows.length} object type{rows.length !== 1 ? 's' : ''} · connector key: <code style={{ fontFamily: 'monospace', fontSize: 11 }}>{connector.connector_key}</code>
-          </p>
-        </div>
+      <ConnectorTabNav connectorId={connectorId} active="object-types" />
+
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
+        <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>
+          {rows.length} object type{rows.length !== 1 ? 's' : ''}
+        </p>
         {canEdit && (
           <Link href={`/platform/connectors/${connectorId}/object-types/new`} style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
