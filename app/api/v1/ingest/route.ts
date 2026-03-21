@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { waitUntil } from '@vercel/functions'
 import { validateApiKey } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkUsageLimits } from '@/lib/actions/usage'
@@ -116,16 +117,24 @@ export async function POST(req: NextRequest) {
   // We kick off processing as a SEPARATE serverless function invocation so that:
   // (a) this response is returned immediately, and
   // (b) the process call gets its own full timeout budget (Intacct API can be slow).
+  // waitUntil keeps the Vercel function alive after the response is sent, ensuring
+  // the fire-and-forget fetch is not cancelled on function return.
   if (autoProcess || resolvedMappingId) {
-    const processUrl = new URL(`/api/jobs/${job.id}/process`, req.url)
-    fetch(processUrl.toString(), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // Re-use the same API key so the process endpoint can validate it
-        'Authorization': req.headers.get('authorization') ?? '',
-      },
-    }).catch(() => {}) // fire-and-forget; caller can poll /api/v1/jobs/:id/status
+    const cronSecret = process.env.CRON_SECRET
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? `https://${req.headers.get('host')}`
+    waitUntil(
+      fetch(`${baseUrl}/api/jobs/${job.id}/process`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Prefer CRON_SECRET (same auth used by push route and sftp-poll);
+          // fall back to the caller's API key so the process endpoint can validate it.
+          Authorization: cronSecret
+            ? `Bearer ${cronSecret}`
+            : (req.headers.get('authorization') ?? ''),
+        },
+      }).catch(() => {})
+    )
     return NextResponse.json({ jobId: job.id, status: 'processing', autoProcess: true })
   }
 
