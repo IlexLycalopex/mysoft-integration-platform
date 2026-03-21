@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getActiveSubscription } from '@/lib/actions/subscriptions';
-import { getTenantConnectorLicences, effectiveConnectorPrice } from '@/lib/actions/connector-licences';
+import { getTenantConnectorLicences } from '@/lib/actions/connector-licences';
+import { effectiveConnectorPrice } from '@/lib/utils/connector-price';
 import { getEffectiveTenantId } from '@/lib/tenant-context';
 import SettingsNav from '@/components/layout/SettingsNav';
 import type { UserRole } from '@/types/database';
