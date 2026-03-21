@@ -12,6 +12,7 @@ const tabs = [
   { href: '/settings/api-keys', label: 'API Keys', roles: ['platform_super_admin','mysoft_support_admin','tenant_admin'] as UserRole[] },
   { href: '/settings/watchers', label: 'Watchers', roles: ['platform_super_admin','mysoft_support_admin','tenant_admin'] as UserRole[] },
   { href: '/settings/usage', label: 'Usage', roles: ['tenant_admin','tenant_operator','tenant_auditor'] as UserRole[] },
+  { href: '/settings/billing', label: 'Billing', roles: ['tenant_admin','tenant_operator','tenant_auditor'] as UserRole[] },
 ];
 
 export default function SettingsNav({ role }: { role: UserRole }) {
