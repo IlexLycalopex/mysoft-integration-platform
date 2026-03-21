@@ -169,7 +169,9 @@ export default async function WatchersPage() {
             {watchers.filter((w) => w.enabled).length} active
           </span>
         </div>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        {/* Horizontal scroll wrapper keeps actions column visible on narrow screens */}
+        <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
           <thead>
             <tr>
               {['Name', 'Type', 'Pattern', 'Mapping', 'Auto-process', 'Status', ...(canManage ? ['Actions'] : [])].map((h, i) => (
@@ -265,13 +267,16 @@ export default async function WatchersPage() {
             ))}
           </tbody>
         </table>
+        </div>{/* end scroll wrapper */}
       </div>
       </div>
     </div>
   );
 }
 
-const panelStyle: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' };
+// overflow: hidden removed — was clipping the actions column on narrow viewports.
+// Border-radius is preserved by the rounded panel; the table scrolls horizontally instead.
+const panelStyle: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8 };
 const panelHeadStyle: React.CSSProperties = { padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' };
 const panelTitleStyle: React.CSSProperties = { fontSize: 13, fontWeight: 600, color: 'var(--navy)' };
 const thStyle: React.CSSProperties = { fontSize: 11, fontWeight: 600, letterSpacing: 0.4, color: 'var(--muted)', textTransform: 'uppercase', padding: '9px 16px', textAlign: 'left', background: '#F7FAFC', borderBottom: '1px solid var(--border)' };

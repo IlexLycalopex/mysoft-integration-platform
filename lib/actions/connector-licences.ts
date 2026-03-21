@@ -11,6 +11,7 @@ export interface ConnectorLicenceRow {
   is_enabled: boolean;
   licence_type: 'included' | 'paid_monthly' | 'paid_annual' | 'trial' | 'complimentary';
   price_gbp_monthly: number | null;
+  discount_pct: number;
   trial_ends_at: string | null;
   notes: string | null;
   enabled_by: string | null;
@@ -22,6 +23,13 @@ export interface ConnectorLicenceRow {
   display_name?: string;
   connector_type?: string | null;
   is_active?: boolean;
+}
+
+/** Computes the effective monthly price after applying discount_pct. */
+export function effectiveConnectorPrice(licence: ConnectorLicenceRow): number {
+  const list = licence.price_gbp_monthly ?? 0;
+  const discount = licence.discount_pct ?? 0;
+  return list * (1 - discount / 100);
 }
 
 // ── Reads ─────────────────────────────────────────────────────────────────────
@@ -89,14 +97,16 @@ export async function createConnectorLicence(formData: FormData) {
     return { error: 'Forbidden' };
   }
 
-  const tenantId    = formData.get('tenant_id') as string;
-  const connectorId = formData.get('connector_id') as string;
-  const licenceType = formData.get('licence_type') as string;
-  const priceRaw    = formData.get('price_gbp_monthly') as string;
-  const trialEnds   = formData.get('trial_ends_at') as string | null;
-  const notes       = formData.get('notes') as string | null;
+  const tenantId      = formData.get('tenant_id') as string;
+  const connectorId   = formData.get('connector_id') as string;
+  const licenceType   = formData.get('licence_type') as string;
+  const priceRaw      = formData.get('price_gbp_monthly') as string;
+  const discountRaw   = formData.get('discount_pct') as string;
+  const trialEnds     = formData.get('trial_ends_at') as string | null;
+  const notes         = formData.get('notes') as string | null;
 
-  const price = priceRaw && priceRaw !== '' ? parseFloat(priceRaw) : null;
+  const price    = priceRaw    && priceRaw    !== '' ? parseFloat(priceRaw)    : null;
+  const discount = discountRaw && discountRaw !== '' ? parseFloat(discountRaw) : 0;
 
   const admin = createAdminClient();
   const { error } = await (admin as any)
@@ -107,6 +117,7 @@ export async function createConnectorLicence(formData: FormData) {
       is_enabled:        true,
       licence_type:      licenceType,
       price_gbp_monthly: price,
+      discount_pct:      discount,
       trial_ends_at:     trialEnds || null,
       notes:             notes || null,
       enabled_by:        user.id,
@@ -136,15 +147,17 @@ export async function updateConnectorLicence(formData: FormData) {
     return { error: 'Forbidden' };
   }
 
-  const licenceId   = formData.get('licence_id') as string;
-  const tenantId    = formData.get('tenant_id') as string;
-  const licenceType = formData.get('licence_type') as string;
-  const priceRaw    = formData.get('price_gbp_monthly') as string;
-  const trialEnds   = formData.get('trial_ends_at') as string | null;
-  const notes       = formData.get('notes') as string | null;
-  const isEnabled   = formData.get('is_enabled') === 'true';
+  const licenceId     = formData.get('licence_id') as string;
+  const tenantId      = formData.get('tenant_id') as string;
+  const licenceType   = formData.get('licence_type') as string;
+  const priceRaw      = formData.get('price_gbp_monthly') as string;
+  const discountRaw   = formData.get('discount_pct') as string;
+  const trialEnds     = formData.get('trial_ends_at') as string | null;
+  const notes         = formData.get('notes') as string | null;
+  const isEnabled     = formData.get('is_enabled') === 'true';
 
-  const price = priceRaw && priceRaw !== '' ? parseFloat(priceRaw) : null;
+  const price    = priceRaw    && priceRaw    !== '' ? parseFloat(priceRaw)    : null;
+  const discount = discountRaw && discountRaw !== '' ? parseFloat(discountRaw) : 0;
 
   const admin = createAdminClient();
   const { error } = await (admin as any)
@@ -153,6 +166,7 @@ export async function updateConnectorLicence(formData: FormData) {
       is_enabled:        isEnabled,
       licence_type:      licenceType,
       price_gbp_monthly: price,
+      discount_pct:      discount,
       trial_ends_at:     trialEnds || null,
       notes:             notes || null,
       updated_at:        new Date().toISOString(),

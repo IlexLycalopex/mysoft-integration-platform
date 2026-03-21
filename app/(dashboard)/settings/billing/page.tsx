@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getActiveSubscription } from '@/lib/actions/subscriptions';
-import { getTenantConnectorLicences } from '@/lib/actions/connector-licences';
+import { getTenantConnectorLicences, effectiveConnectorPrice } from '@/lib/actions/connector-licences';
 import { getEffectiveTenantId } from '@/lib/tenant-context';
 import SettingsNav from '@/components/layout/SettingsNav';
 import type { UserRole } from '@/types/database';
@@ -55,14 +55,16 @@ export default async function BillingPage() {
   // Only show enabled licences
   const enabledLicences = licences.filter((l) => l.is_enabled);
 
-  // Pricing
+  // Pricing — plan price (FOC flag applies only to the base plan, not connectors)
   const planPrice = activeSub
     ? activeSub.is_free_of_charge ? 0 : (activeSub.effective_price_gbp ?? activeSub.plan_price_gbp ?? 0)
     : 0;
+  // Connector add-ons: use effective price (list price minus discount_pct)
   const connectorAddOnTotal = enabledLicences
-    .filter((l) => l.price_gbp_monthly != null && l.price_gbp_monthly > 0)
-    .reduce((sum, l) => sum + (l.price_gbp_monthly ?? 0), 0);
+    .filter((l) => effectiveConnectorPrice(l) > 0)
+    .reduce((sum, l) => sum + effectiveConnectorPrice(l), 0);
   const monthlyTotal = planPrice + connectorAddOnTotal;
+  const isFree = monthlyTotal === 0;
 
   const now = new Date();
   const monthLabel = now.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
@@ -116,7 +118,7 @@ export default async function BillingPage() {
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>
             Total Monthly Cost
           </div>
-          {activeSub?.is_free_of_charge ? (
+          {isFree ? (
             <div style={{ fontSize: 38, fontWeight: 700, color: '#ffffff', lineHeight: 1 }}>
               Free of charge
             </div>
@@ -237,13 +239,31 @@ export default async function BillingPage() {
                       </div>
                     )}
                   </div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: price > 0 ? 'var(--navy)' : '#1A6B30', textAlign: 'right', minWidth: 90 }}>
-                    {price === 0 ? (
-                      <>£0<span style={{ fontSize: 11, fontWeight: 400, color: 'var(--muted)' }}>/mo</span></>
-                    ) : (
-                      <>£{price.toFixed(2)}<span style={{ fontSize: 11, fontWeight: 400, color: 'var(--muted)' }}>/mo</span></>
-                    )}
-                  </div>
+                  {(() => {
+                    const discount = licence.discount_pct ?? 0;
+                    const effective = effectiveConnectorPrice(licence);
+                    return (
+                      <div style={{ textAlign: 'right', minWidth: 100 }}>
+                        {discount > 0 && price > 0 && (
+                          <div style={{ fontSize: 11, color: 'var(--muted)', textDecoration: 'line-through', marginBottom: 1 }}>
+                            £{price.toFixed(2)}/mo
+                          </div>
+                        )}
+                        <div style={{ fontSize: 15, fontWeight: 700, color: effective > 0 ? 'var(--navy)' : '#1A6B30' }}>
+                          {effective === 0 ? (
+                            <>£0<span style={{ fontSize: 11, fontWeight: 400, color: 'var(--muted)' }}>/mo</span></>
+                          ) : (
+                            <>£{effective.toFixed(2)}<span style={{ fontSize: 11, fontWeight: 400, color: 'var(--muted)' }}>/mo</span></>
+                          )}
+                        </div>
+                        {discount > 0 && (
+                          <div style={{ fontSize: 11, color: '#92620A', fontWeight: 500, marginTop: 1 }}>
+                            {discount >= 100 ? 'FOC' : `${discount}% off`}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })
@@ -259,7 +279,7 @@ export default async function BillingPage() {
           }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>Total per month</span>
             <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--navy)' }}>
-              {activeSub?.is_free_of_charge ? 'Free' : `£${monthlyTotal.toFixed(2)}`}
+              {isFree ? 'Free' : `£${monthlyTotal.toFixed(2)}`}
             </span>
           </div>
         </div>
