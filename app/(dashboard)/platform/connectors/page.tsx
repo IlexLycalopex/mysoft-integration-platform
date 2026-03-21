@@ -107,14 +107,14 @@ export default async function PlatformConnectorsPage() {
               name="Offline Agent"
               description="On-premise binary for connecting firewalled Sage X3, local SFTP, or isolated networks. Outbound-only HTTPS, no VPN required."
               typeBadge={{ label: 'On-Premise', colour: '#6B21A8', bg: '#F5F3FF', border: '#DDD6FE' }}
-              docLink="/docs/offline-agent-roadmap.md"
+              docLink="mailto:support@mysoft.co.uk?subject=Offline%20Agent%20Roadmap%20Enquiry"
             />
             <StaticComingSoonCard
               icon="⚡"
               name="Power Automate Connector"
               description="Certified Microsoft Power Automate connector with triggers for job events and actions for submitting data. Bridges Microsoft 365, Dynamics 365, and Sage."
               typeBadge={{ label: 'iPaaS', colour: '#1E40AF', bg: '#EFF6FF', border: '#BFDBFE' }}
-              docLink="/docs/power-automate-connector.md"
+              docLink="mailto:support@mysoft.co.uk?subject=Power%20Automate%20Connector%20Roadmap%20Enquiry"
             />
           </div>
         </div>
@@ -268,13 +268,19 @@ function StaticComingSoonCard({
 
       {docLink && (
         <div style={{ flexShrink: 0 }}>
-          <span style={{
-            fontSize: 12, fontWeight: 500, color: 'var(--muted)',
-            padding: '6px 12px', borderRadius: 5, border: '1px solid #E2E8F0',
-            background: 'transparent', whiteSpace: 'nowrap',
-          }}>
-            Roadmap docs
-          </span>
+          <a
+            href={docLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-block',
+              fontSize: 12, fontWeight: 500, color: 'var(--navy)',
+              padding: '6px 12px', borderRadius: 5, border: '1px solid #E2E8F0',
+              background: 'transparent', whiteSpace: 'nowrap', textDecoration: 'none',
+            }}
+          >
+            Roadmap docs →
+          </a>
         </div>
       )}
     </div>
