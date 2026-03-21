@@ -508,6 +508,19 @@ function SectionJobHistory() {
         <p style={bodyText}>
           RECORDNOs are visible in the processing log on each successful <code style={{ fontFamily: 'monospace', fontSize: 12 }}>success</code> level entry, and also aggregated in the job summary on the Job History page.
         </p>
+
+        <h3 style={subHeading}>Error Queue</h3>
+        <p style={bodyText}>
+          When a job completes with <code style={{ fontFamily: 'monospace', fontSize: 12 }}>completed_with_errors</code>, the rows that failed are written to the <strong>Error Queue</strong> (<Link href="/errors" style={{ color: '#00A3E0' }}>Errors</Link> in the sidebar). Each error entry shows:
+        </p>
+        <ul style={{ ...bodyText, paddingLeft: 20 }}>
+          <li style={{ marginBottom: 6 }}>The original row number and raw field values</li>
+          <li style={{ marginBottom: 6 }}>The Intacct error code, description, and correction hint</li>
+          <li style={{ marginBottom: 6 }}>An option to <strong>dismiss</strong> the error (mark as reviewed) or to fix the source data and re-upload a corrected file</li>
+        </ul>
+        <div style={callout}>
+          The error queue is a <em>review tool</em>, not a resubmission tool. To resubmit failed rows, correct the source data and create a new job containing only those rows — do not include already-successful rows or you risk double-posting.
+        </div>
       </div>
     </section>
   );
@@ -621,6 +634,30 @@ curl -X POST https://app.mysoft-integration.com/api/v1/ingest \\
         <p style={bodyText}>
           Watchers cannot be permanently deleted while they have associated job history — the jobs would lose their source reference. Instead, use the <strong>📦 Archive</strong> button to retire a watcher. Archiving immediately disables the watcher and removes it from the Settings list, but retains the underlying record so all job history remains intact and auditable. If you need a watcher removed entirely, contact your platform administrator once all associated jobs have been cleared.
         </p>
+
+        <h3 style={subHeading}>Setting up an SFTP watcher</h3>
+        <ol style={{ ...bodyText, paddingLeft: 20 }}>
+          <li style={{ marginBottom: 8 }}>Go to <Link href="/settings/watchers" style={{ color: '#00A3E0' }}>Settings → Watchers</Link> and click <strong>Add Watcher</strong>.</li>
+          <li style={{ marginBottom: 8 }}>Select <strong>SFTP</strong> as the source type.</li>
+          <li style={{ marginBottom: 8 }}>Enter a name for the watcher (e.g. &quot;Payroll SFTP — Monthly&quot;).</li>
+          <li style={{ marginBottom: 8 }}>In Step 2 — Connection: enter the SFTP host, port (default 22), username, password, and the remote path to poll (e.g. <code style={{ fontFamily: 'monospace', fontSize: 12 }}>/outbound/payroll/</code>).</li>
+          <li style={{ marginBottom: 8 }}>Click <strong>⚡ Test SFTP Connection</strong> to verify connectivity before saving.</li>
+          <li style={{ marginBottom: 8 }}>In Step 3 — Processing: set the file pattern (default <code style={{ fontFamily: 'monospace', fontSize: 12 }}>*.csv</code>), choose a field mapping, and set the poll interval (minimum 60 seconds).</li>
+          <li style={{ marginBottom: 8 }}>Choose an archive action: <strong>Leave</strong> (files stay on SFTP), <strong>Move</strong> (move to archive folder), or <strong>Delete</strong> (remove after ingestion).</li>
+          <li style={{ marginBottom: 8 }}>Save the watcher. It will begin polling at the next scheduled interval.</li>
+        </ol>
+
+        <h3 style={subHeading}>Setting up an HTTP Push watcher</h3>
+        <ol style={{ ...bodyText, paddingLeft: 20 }}>
+          <li style={{ marginBottom: 8 }}>Go to <Link href="/settings/watchers" style={{ color: '#00A3E0' }}>Settings → Watchers</Link> and click <strong>Add Watcher</strong>.</li>
+          <li style={{ marginBottom: 8 }}>Select <strong>HTTP Push</strong> as the source type.</li>
+          <li style={{ marginBottom: 8 }}>Enter a name and choose a field mapping.</li>
+          <li style={{ marginBottom: 8 }}>Save the watcher. The platform generates a unique push URL immediately.</li>
+          <li style={{ marginBottom: 8 }}>Copy the push URL from the watcher settings (click <strong>Reveal</strong> to show the token). Provide this URL to your external system.</li>
+        </ol>
+        <div style={infoBox}>
+          The HTTP Push URL is the authentication credential — treat it as a secret. If it is compromised, archive the watcher (which invalidates the URL) and create a new one.
+        </div>
 
         <h3 style={subHeading}>Testing an SFTP connection</h3>
         <p style={bodyText}>
@@ -775,7 +812,7 @@ function SectionCsvFormat() {
       <div style={card}>
         <h2 style={sectionHeading}>📊 CSV Format Reference</h2>
         <p style={bodyText}>
-          The platform supports 7 transaction types. Each type has its own expected columns. Column names are case-insensitive and extra columns are ignored. Use the field mapping editor to map your column names to the expected names if they differ.
+          The platform supports 10 transaction types: 7 financial transaction types below, plus Timesheet, Vendor Import, and Customer Import (see New Data Formats). Column names are case-insensitive and extra columns are ignored. Use the field mapping editor to map your column names to the expected names if they differ.
         </p>
 
         <h3 style={subHeading}>1. Standard Journal Entry</h3>
@@ -872,6 +909,10 @@ function SectionCsvFormat() {
             </tbody>
           </table>
         </div>
+
+        <div style={infoBox}>
+          <strong>More transaction types:</strong> Timesheet, Vendor Import, and Customer Import are documented in the <strong>New Data Formats</strong> section.
+        </div>
       </div>
     </section>
   );
@@ -909,6 +950,36 @@ function SectionIntacctSetup() {
           <li style={{ marginBottom: 6 }}>Have the <strong>permissions</strong> required for the transaction types you intend to post (e.g. GL access for journal entries, AR access for invoices).</li>
           <li style={{ marginBottom: 6 }}>Not be restricted by IP-based access controls that would block API calls from the platform&apos;s servers.</li>
         </ul>
+
+        <p style={{ ...bodyText, marginBottom: 4, marginTop: 12 }}><strong>Required Intacct permissions per transaction type:</strong></p>
+        <div style={{ overflowX: 'auto', marginBottom: 16 }}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={th}>Transaction type</th>
+                <th style={th}>Required Intacct module access</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { type: 'Journal Entry / Payroll Journal', access: 'General Ledger → Journal Entries — Add, View' },
+                { type: 'AR Invoice',    access: 'Accounts Receivable → Invoices — Add, View' },
+                { type: 'AP Bill',       access: 'Accounts Payable → Bills — Add, View' },
+                { type: 'Expense Report',access: 'Time & Expense → Expense Reports — Add, View' },
+                { type: 'AR Payment',    access: 'Accounts Receivable → Receive Payments — Add, View' },
+                { type: 'AP Payment',    access: 'Accounts Payable → Pay Bills — Add, View' },
+                { type: 'Timesheet',     access: 'Time & Expense → Timesheets — Add, View' },
+                { type: 'Vendor Import', access: 'Accounts Payable → Vendors — Add, Edit, View' },
+                { type: 'Customer Import',access: 'Accounts Receivable → Customers — Add, Edit, View' },
+              ].map((row) => (
+                <tr key={row.type}>
+                  <td style={{ ...td, fontWeight: 500 }}>{row.type}</td>
+                  <td style={td}>{row.access}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         <h3 style={subHeading}>Step 3 — Enter credentials in the platform</h3>
         <ol style={{ ...bodyText, paddingLeft: 20 }}>
@@ -990,6 +1061,41 @@ function SectionTroubleshooting() {
       meaning: "Customer ID doesn't exist in Intacct",
       fix: 'Create the customer record in Intacct (Accounts Receivable → Customers) first.',
     },
+    {
+      code: 'GL account not found',
+      meaning: "Intacct doesn't recognize the GL account number",
+      fix: 'Verify the account number exists in Intacct under General Ledger → Chart of Accounts. Account numbers are case-sensitive.',
+    },
+    {
+      code: 'Unbalanced journal entry',
+      meaning: 'Debits and credits for a journal group do not sum to zero',
+      fix: 'Check that rows with the same journal_symbol + posting_date + description group have exactly matching debit and credit totals. Check for rounding — use 2 decimal places.',
+    },
+    {
+      code: 'VENDORID not recognized',
+      meaning: "Vendor ID doesn't exist in Intacct",
+      fix: 'Create the vendor record in Intacct (Accounts Payable → Vendors) before submitting AP Bills or AP Payments.',
+    },
+    {
+      code: 'File too large',
+      meaning: 'Uploaded file exceeds the 50 MB size limit',
+      fix: 'Split the file into smaller batches and upload separately. Each batch should have its own balanced set of entries.',
+    },
+    {
+      code: 'No rows parsed / empty file',
+      meaning: 'The parser found no data rows after the header',
+      fix: 'Ensure the file has a header row in row 1 and at least one data row in row 2. Check for hidden characters or BOM markers if exporting from Excel.',
+    },
+    {
+      code: 'Mapping not found',
+      meaning: 'The mapping UUID supplied does not exist or belongs to another tenant',
+      fix: 'Verify the mappingId in your API call or agent config. Go to Mappings to confirm the mapping is still active and copy its UUID.',
+    },
+    {
+      code: 'Invalid or expired API key',
+      meaning: 'Bearer token is unrecognized, revoked, or expired',
+      fix: 'Check that the Authorization header format is correct: Bearer mip_live_.... If the key has been revoked, create a new one in Settings → API Keys.',
+    },
   ];
 
   return (
@@ -1020,6 +1126,17 @@ function SectionTroubleshooting() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        <h3 style={subHeading}>Dry run / sandbox mode</h3>
+        <p style={bodyText}>
+          Before submitting real data to Intacct, use <strong>Dry Run</strong> mode to validate your file and mapping without posting any transactions. A dry run runs the full processing pipeline — credential check, file parsing, field mapping, data validation — but stops before calling the Intacct API.
+        </p>
+        <p style={bodyText}>
+          <strong>How to enable:</strong> On the upload page, tick the <strong>Dry Run</strong> checkbox before uploading. For API submissions, pass <code style={{ fontFamily: 'monospace', fontSize: 12 }}>&quot;dryRun&quot;: true</code> in the request body.
+        </p>
+        <div style={successBox}>
+          <strong>Best practice:</strong> Always run a dry run first when setting up a new mapping or submitting a new transaction type. It catches formatting, date, and account errors before anything reaches Intacct.
         </div>
 
         <h3 style={subHeading}>Reading the processing log</h3>
@@ -1130,6 +1247,18 @@ function SectionRolesPermissions() {
             </div>
           ))}
         </div>
+
+        <h3 style={subHeading}>Managing users</h3>
+        <p style={{ ...bodyText, marginBottom: 4 }}>User management is available to <strong>Tenant Admin</strong> and above via <Link href="/settings/users" style={{ color: '#00A3E0' }}>Settings → Users</Link>.</p>
+        <ul style={{ ...bodyText, paddingLeft: 20 }}>
+          <li style={{ marginBottom: 8 }}><strong>Invite a user:</strong> click <em>Invite User</em>, enter their email address, select a role, and send. The invite link expires after the configured TTL (default 7 days).</li>
+          <li style={{ marginBottom: 8 }}><strong>Change a role:</strong> click the edit icon next to a user and select a new role from the dropdown. Role changes take effect immediately.</li>
+          <li style={{ marginBottom: 8 }}><strong>Restrict entities:</strong> for operators who should only post to specific Intacct entities, use the entity restrictions setting on their user profile.</li>
+          <li style={{ marginBottom: 8 }}><strong>Revoke access:</strong> use the remove button on a user to immediately revoke their access. Their existing job history and audit log entries are retained.</li>
+        </ul>
+        <div style={callout}>
+          <strong>Pending invites</strong> are visible in the Users list with a <em>Pending</em> badge. If a user hasn&apos;t received their invite, check their spam folder or use the <em>Resend</em> button. Expired invites can be resent to generate a fresh link.
+        </div>
       </div>
     </section>
   );
@@ -1187,6 +1316,44 @@ function SectionUsagePlans() {
         <p style={bodyText}>
           Your workspace operates on a subscription plan that defines monthly limits on jobs, rows, and storage.
         </p>
+
+        <h3 style={subHeading}>Plan tiers</h3>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={th}>Plan</th>
+                <th style={th}>Jobs / month</th>
+                <th style={th}>Rows / month</th>
+                <th style={th}>Storage</th>
+                <th style={th}>Watchers</th>
+                <th style={th}>API keys</th>
+                <th style={th}>Users</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { plan: 'Free',         jobs: '10',       rows: '1,000',    storage: '100 MB',  watchers: '1',  keys: '1',  users: '2' },
+                { plan: 'Starter',      jobs: '100',      rows: '10,000',   storage: '1 GB',    watchers: '3',  keys: '3',  users: '5' },
+                { plan: 'Professional', jobs: '500',      rows: '100,000',  storage: '10 GB',   watchers: '10', keys: '10', users: '20' },
+                { plan: 'Enterprise',   jobs: 'Unlimited', rows: 'Unlimited', storage: 'Custom', watchers: 'Unlimited', keys: 'Unlimited', users: 'Unlimited' },
+              ].map((row) => (
+                <tr key={row.plan}>
+                  <td style={{ ...td, fontWeight: 600 }}>{row.plan}</td>
+                  <td style={td}>{row.jobs}</td>
+                  <td style={td}>{row.rows}</td>
+                  <td style={td}>{row.storage}</td>
+                  <td style={td}>{row.watchers}</td>
+                  <td style={td}>{row.keys}</td>
+                  <td style={td}>{row.users}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div style={infoBox}>
+          Plan limits shown are indicative defaults. Your actual limits may differ based on your subscription agreement. Check <Link href="/settings/usage" style={{ color: '#1d4ed8' }}>Settings → Usage</Link> for your current limits and consumption.
+        </div>
 
         <h3 style={subHeading}>Viewing your usage</h3>
         <p style={bodyText}>
@@ -1359,6 +1526,40 @@ function SectionNewFormats() {
 
         <div style={infoBox}>
           To use these formats, create a mapping in the <Link href="/mappings" style={{ color: '#1d4ed8' }}>Mappings</Link> section and select <strong>Timesheet</strong>, <strong>Vendor Import</strong>, or <strong>Customer Import</strong> as the transaction type.
+        </div>
+
+        <SectionDivider />
+
+        <h3 style={{ ...subHeading, marginTop: 0 }}>Pipe-delimited files (.psv, .txt)</h3>
+        <p style={bodyText}>
+          Files delimited by a pipe character (<code style={{ fontFamily: 'monospace', fontSize: 12 }}>|</code>) are fully supported alongside comma-separated CSV. The parser auto-detects the delimiter — no configuration required. Use the same column structure as CSV.
+        </p>
+        <div style={codeBlock}>
+{`# Example pipe-delimited file (same columns as CSV)
+journal_symbol|posting_date|gl_account|amount|debit_credit
+GJ|01/04/2025|60420|1500.00|debit
+GJ|01/04/2025|10000|1500.00|credit`}
+        </div>
+
+        <h3 style={subHeading}>Tab-delimited files (.tsv, .txt)</h3>
+        <p style={bodyText}>
+          Tab-separated files are also auto-detected. Many systems (Excel &quot;Save As Text (Tab delimited)&quot;, SQL exports) produce TSV by default. No configuration required — just upload as you would a CSV.
+        </p>
+
+        <h3 style={subHeading}>Plain text files (.txt) — auto-detection</h3>
+        <p style={bodyText}>
+          Files with a <code style={{ fontFamily: 'monospace', fontSize: 12 }}>.txt</code> extension are parsed using PapaParse&apos;s auto-detection mode. The parser samples the first few rows and selects the most likely delimiter (comma, tab, pipe, semicolon). If auto-detection fails, the file is treated as comma-separated.
+        </p>
+        <div style={callout}>
+          <strong>Auto-detection tip:</strong> Ensure your file has a consistent delimiter throughout. Mixed delimiters (e.g. commas inside quoted fields combined with pipe separators) may cause unexpected column splits. Test with a small sample file first.
+        </div>
+
+        <h3 style={subHeading}>JSON record push (no file required)</h3>
+        <p style={bodyText}>
+          If your source system can produce structured data rather than a file, use the JSON push endpoint to submit records directly via the API — no file upload needed. See the <strong>Developer &amp; API</strong> section for the full endpoint reference.
+        </p>
+        <div style={infoBox}>
+          All delimited formats (CSV, pipe, tab, TXT) and JSON push use the same field mapping system. Create one mapping and it works for all input formats.
         </div>
       </div>
     </section>
@@ -1664,6 +1865,110 @@ curl -X POST https://app.mysoft-integration.com/api/v1/push/YOUR_PUSH_TOKEN \\
           <p style={{ ...bodyText, fontSize: 12, color: '#555', marginTop: 8 }}>
             <strong>Finding your push URL:</strong> Go to <Link href="/settings/watchers" style={{ color: '#00A3E0' }}>Settings → Watchers</Link>, edit an HTTP Push watcher, and the full push URL is shown in Step 2. It has the form <code style={{ fontFamily: 'monospace', fontSize: 11 }}>https://…/api/v1/push/&lt;uuid&gt;</code>.
           </p>
+        </div>
+
+        {/* POST /api/v1/push-records */}
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', background: '#dbeafe', border: '1px solid #93c5fd', borderRadius: 4, padding: '2px 8px', fontFamily: 'monospace' }}>POST</span>
+            <code style={{ fontSize: 13, fontFamily: 'monospace', color: '#111' }}>/api/v1/push-records</code>
+          </div>
+          <p style={{ ...bodyText, marginBottom: 8 }}>
+            <strong>JSON record push</strong> — submit records directly as a JSON array without uploading a file. Ideal for system integrations where data is already in memory (ERP exports, iPaaS workflows, scripts). The platform converts the array to a virtual CSV internally and processes it through the standard pipeline.
+          </p>
+          <p style={{ ...bodyText, fontWeight: 600, marginBottom: 4 }}>Request body (application/json):</p>
+          <div style={{ overflowX: 'auto', marginBottom: 12 }}>
+            <table style={tableStyle}>
+              <thead>
+                <tr>
+                  <th style={th}>Field</th>
+                  <th style={th}>Type</th>
+                  <th style={th}>Required</th>
+                  <th style={th}>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { field: 'records',                  type: 'object[]', req: true,  desc: 'Array of record objects. Keys are column names matching your mapping.' },
+                  { field: 'mappingId',                type: 'string',   req: true,  desc: 'UUID of the field mapping to use for processing.' },
+                  { field: 'entityId',                 type: 'string',   req: false, desc: 'Override the entity / location ID for this job.' },
+                  { field: 'autoProcess',              type: 'boolean',  req: false, desc: 'Trigger processing immediately. Default: true.' },
+                  { field: 'dryRun',                   type: 'boolean',  req: false, desc: 'Validate without posting to Intacct. Default: false.' },
+                  { field: 'attachmentStoragePath',    type: 'string',   req: false, desc: 'Supabase storage path of a pre-uploaded supporting document.' },
+                  { field: 'attachmentFilename',       type: 'string',   req: false, desc: 'Filename of the supporting document.' },
+                  { field: 'attachmentMimeType',       type: 'string',   req: false, desc: 'MIME type of the supporting document (e.g. application/pdf).' },
+                ].map((row) => (
+                  <tr key={row.field}>
+                    <td style={tdCode}>{row.field}</td>
+                    <td style={tdCode}>{row.type}</td>
+                    <td style={{ ...td, textAlign: 'center' }}>{row.req ? '✅' : ''}</td>
+                    <td style={td}>{row.desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p style={{ ...bodyText, fontWeight: 600, marginBottom: 4 }}>Example (curl):</p>
+          <div style={codeBlock}>
+{`curl -X POST https://app.mysoft-integration.com/api/v1/push-records \\
+  -H "Authorization: Bearer mip_live_xxxxxxxxxxxx" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "mappingId": "3f2e1d00-...",
+    "autoProcess": true,
+    "records": [
+      {
+        "journal_symbol": "GJ",
+        "posting_date": "01/04/2025",
+        "gl_account": "60420",
+        "amount": "1500.00",
+        "debit_credit": "debit",
+        "description": "Q1 Accrual",
+        "memo": "Payroll accrual"
+      },
+      {
+        "journal_symbol": "GJ",
+        "posting_date": "01/04/2025",
+        "gl_account": "10000",
+        "amount": "1500.00",
+        "debit_credit": "credit",
+        "description": "Q1 Accrual"
+      }
+    ]
+  }'`}
+          </div>
+          <p style={{ ...bodyText, fontWeight: 600, marginBottom: 4 }}>Response:</p>
+          <div style={codeBlock}>
+{`// Accepted — job created and processing triggered
+{ "jobId": "uuid", "status": "processing", "rowCount": 2, "sourceType": "json_push" }
+
+// Dry run — validation only, no Intacct submission
+{ "jobId": "uuid", "status": "completed", "dryRun": true, "rowCount": 2, "errors": [] }`}
+          </div>
+          <div style={infoBox}>
+            Record keys must match the column names expected by your mapping, not necessarily the Intacct field names. The same field mapping editor used for file uploads applies here. Use <code style={{ fontFamily: 'monospace', fontSize: 12 }}>dryRun: true</code> to validate your record structure before sending real data.
+          </div>
+        </div>
+
+        {/* GET /api/health */}
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#15803d', background: '#dcfce7', border: '1px solid #86efac', borderRadius: 4, padding: '2px 8px', fontFamily: 'monospace' }}>GET</span>
+            <code style={{ fontSize: 13, fontFamily: 'monospace', color: '#111' }}>/api/health</code>
+            <span style={{ fontSize: 11, background: '#f3f4f6', color: '#6b7280', borderRadius: 4, padding: '1px 6px' }}>Public — no auth required</span>
+          </div>
+          <p style={{ ...bodyText, marginBottom: 8 }}>
+            <strong>Platform health check</strong> — returns overall platform status and individual check results. No authentication required. Suitable for external uptime monitors.
+          </p>
+          <div style={codeBlock}>
+{`curl https://app.mysoft-integration.com/api/health
+
+// Healthy
+{ "status": "ok", "timestamp": "2026-03-21T09:00:00.000Z",
+  "checks": { "database": {"status":"ok"}, "jobQueueDlq": {"status":"ok","dlqCount":0,"threshold":10}, ... } }
+
+// HTTP 200 for ok/degraded, HTTP 503 for unhealthy`}
+          </div>
         </div>
       </div>
 
