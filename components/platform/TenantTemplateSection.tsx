@@ -1,6 +1,7 @@
 // components/platform/TenantTemplateSection.tsx
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { applyTemplateToTenant, clearTenantTemplate } from '@/lib/actions/branding';
@@ -88,9 +89,9 @@ export default function TenantTemplateSection({
     return (
       <div style={{ padding: '16px 18px', background: '#F7FAFC', border: '1px dashed var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--muted)' }}>
         No published templates available.{' '}
-        <a href="/platform/branding-templates/new" style={{ color: 'var(--blue)', fontWeight: 600, textDecoration: 'none' }}>
+        <Link href="/platform/branding-templates/new" style={{ color: 'var(--blue)', fontWeight: 600, textDecoration: 'none' }}>
           Create and publish a template
-        </a>{' '}
+        </Link>{' '}
         first.
       </div>
     );

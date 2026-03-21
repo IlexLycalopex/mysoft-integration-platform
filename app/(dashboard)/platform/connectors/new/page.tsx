@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useActionState } from 'react';
 import { createConnector } from '@/lib/actions/connectors';
 import type { ConnectorFormState } from '@/lib/actions/connectors';
@@ -94,9 +95,9 @@ export default function NewConnectorPage() {
           >
             {pending ? 'Creating…' : 'Create connector'}
           </button>
-          <a href="/platform/connectors" style={{ fontSize: 13, color: 'var(--muted)', padding: '9px 0', textDecoration: 'none' }}>
+          <Link href="/platform/connectors" style={{ fontSize: 13, color: 'var(--muted)', padding: '9px 0', textDecoration: 'none' }}>
             Cancel
-          </a>
+          </Link>
         </div>
       </form>
     </div>

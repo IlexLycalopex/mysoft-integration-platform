@@ -90,6 +90,9 @@ export default async function TenantConnectorsPage({ params }: { params: Promise
     .filter((l) => l.is_enabled && l.price_gbp_monthly != null && l.price_gbp_monthly > 0)
     .reduce((sum, l) => sum + (l.price_gbp_monthly ?? 0), 0);
 
+  // eslint-disable-next-line react-hooks/purity -- server component; Date.now() is safe per-request
+  const now = Date.now();
+
   return (
     <div style={{ padding: 24, maxWidth: 860 }}>
       {/* Header */}
@@ -160,7 +163,7 @@ export default async function TenantConnectorsPage({ params }: { params: Promise
               const tm = licence.connector_type ? TYPE_META[licence.connector_type] : null;
               const trialExpired = licence.trial_ends_at ? new Date(licence.trial_ends_at) < new Date() : false;
               const trialExpiringSoon = licence.trial_ends_at && !trialExpired
-                ? (new Date(licence.trial_ends_at).getTime() - Date.now()) < 14 * 86400 * 1000
+                ? (new Date(licence.trial_ends_at).getTime() - now) < 14 * 86400 * 1000
                 : false;
 
               return (

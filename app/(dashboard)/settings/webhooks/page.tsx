@@ -45,7 +45,7 @@ export default async function WebhooksPage() {
   const canUseWebhooks = isPlatformAdmin || hasFeature(planFeatures, 'webhooks');
 
   let webhooks: WebhookRow[] = [];
-  let deliveryLogsByEndpoint: Record<string, DeliveryLogRow[]> = {};
+  const deliveryLogsByEndpoint: Record<string, DeliveryLogRow[]> = {};
   let receivers: ReceiverRow[] = [];
 
   if (effectiveTenantId) {
