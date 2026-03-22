@@ -155,7 +155,7 @@ export class Sage50Connector implements SourceConnector {
   async healthCheck(credentials: OAuthTokens): Promise<{ ok: boolean; message?: string }> {
     try {
       const page = await sageGet('/business', credentials.accessToken);
-      return { ok: !!(page as Record<string, unknown>).id };
+      return { ok: !!(page as unknown as Record<string, unknown>).id };
     } catch (err) {
       return { ok: false, message: err instanceof Error ? err.message : String(err) };
     }

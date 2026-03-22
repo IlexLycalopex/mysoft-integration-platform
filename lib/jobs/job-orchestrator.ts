@@ -19,6 +19,8 @@ import { EventWriter } from './event-writer';
 import { releaseJobSuccess, releaseJobFailure, markJobProcessing } from './job-service';
 import { categoriseError, extractErrorCode } from './retry-policy';
 import { getIntacctConnector } from '@/lib/connectors/intacct/index';
+import { getX3Connector }      from '@/lib/connectors/x3/index';
+import type { Connector }      from '@/lib/connectors/connector.interface';
 import { parseStep }            from '@/lib/steps/parse-step';
 import { validateSourceStep }   from '@/lib/steps/validate-source-step';
 import { validateTemplateStep } from '@/lib/steps/validate-template-step';
@@ -83,10 +85,10 @@ export async function orchestrateJob(jobId: string): Promise<OrchestrateResult> 
   // Mark as processing
   await markJobProcessing(jobId);
 
-  // Load mapping
+  // Load mapping (include connector_id for runtime connector resolution)
   const { data: mapping } = await (admin as ReturnType<typeof createAdminClient>)
     .from('field_mappings')
-    .select('column_mappings, transaction_type, name')
+    .select('column_mappings, transaction_type, name, connector_id')
     .eq('id', job.mapping_id ?? '')
     .single();
 
@@ -121,8 +123,20 @@ export async function orchestrateJob(jobId: string): Promise<OrchestrateResult> 
   // Select pipeline
   const pipeline: StepType[] = job.dry_run ? DRY_RUN_PIPELINE : STANDARD_PIPELINE;
 
-  // Load connector
-  const connector = getIntacctConnector();
+  // Resolve connector — look up connector_key from the mapping's connector_id
+  let connector: Connector = getIntacctConnector(); // default
+  if (mapping?.connector_id) {
+    const { data: connectorRow } = await (admin as any)
+      .from('endpoint_connectors')
+      .select('connector_key')
+      .eq('id', mapping.connector_id)
+      .single();
+    const connectorKey = connectorRow?.connector_key as string | undefined;
+    if (connectorKey === 'sage_x3') {
+      connector = getX3Connector();
+    }
+    // Additional connectors registered here as they are built
+  }
 
   // Initialise step context (items populated as pipeline progresses)
   let currentItems: JobItem[] = [];

@@ -335,6 +335,11 @@ export interface Database {
           last_error_code: string | null;
           last_error_message: string | null;
           source_artefact_id: string | null;
+          // migration 047 — source connector fields
+          source_path: string | null;
+          source_connector_id: string | null;
+          source_object_key: string | null;
+          source_sync_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -390,6 +395,11 @@ export interface Database {
           last_error_code?: string | null;
           last_error_message?: string | null;
           source_artefact_id?: string | null;
+          // migration 047 — source connector fields
+          source_path?: string | null;
+          source_connector_id?: string | null;
+          source_object_key?: string | null;
+          source_sync_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -445,6 +455,94 @@ export interface Database {
           last_error_code?: string | null;
           last_error_message?: string | null;
           source_artefact_id?: string | null;
+          // migration 047 — source connector fields
+          source_path?: string | null;
+          source_connector_id?: string | null;
+          source_object_key?: string | null;
+          source_sync_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      // migration 047 — source connector credential storage
+      source_credentials: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          connector_id: string;
+          encrypted_data: string;
+          iv: string;
+          auth_tag: string;
+          extra_data: Record<string, unknown> | null;
+          token_expires_at: string | null;
+          connected_at: string;
+          connected_by: string | null;
+          refreshed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          connector_id: string;
+          encrypted_data: string;
+          iv: string;
+          auth_tag: string;
+          extra_data?: Record<string, unknown> | null;
+          token_expires_at?: string | null;
+          connected_at?: string;
+          connected_by?: string | null;
+          refreshed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          connector_id?: string;
+          encrypted_data?: string;
+          iv?: string;
+          auth_tag?: string;
+          extra_data?: Record<string, unknown> | null;
+          token_expires_at?: string | null;
+          connected_at?: string;
+          connected_by?: string | null;
+          refreshed_at?: string | null;
+        };
+        Relationships: [];
+      };
+      // migration 047 — source sync configuration storage
+      source_syncs: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          connector_id: string;
+          object_type: string;
+          mapping_id: string | null;
+          is_active: boolean;
+          last_synced_at: string | null;
+          sync_config: Record<string, unknown> | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          connector_id: string;
+          object_type: string;
+          mapping_id?: string | null;
+          is_active?: boolean;
+          last_synced_at?: string | null;
+          sync_config?: Record<string, unknown> | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          connector_id?: string;
+          object_type?: string;
+          mapping_id?: string | null;
+          is_active?: boolean;
+          last_synced_at?: string | null;
+          sync_config?: Record<string, unknown> | null;
           created_at?: string;
           updated_at?: string;
         };

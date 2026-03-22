@@ -1,11 +1,13 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getCredentials } from '@/lib/actions/credentials';
+import { getX3CredentialsSummary } from '@/lib/actions/x3-credentials';
 import { getEffectiveTenantId } from '@/lib/tenant-context';
 import { getTenantPlanFeatures } from '@/lib/actions/usage';
 import { hasFeature } from '@/lib/features';
 import SettingsNav from '@/components/layout/SettingsNav';
 import IntacctConfigForm from './IntacctConfigForm';
+import X3ConfigForm from './X3ConfigForm';
 import type { UserRole } from '@/types/database';
 
 export default async function IntegrationsPage() {
@@ -24,7 +26,12 @@ export default async function IntegrationsPage() {
   }
 
   const { tenantId: effectiveTenantId } = await getEffectiveTenantId(profile.tenant_id);
-  const existing = effectiveTenantId ? await getCredentials(effectiveTenantId) : null;
+  const [existing, existingX3] = effectiveTenantId
+    ? await Promise.all([
+        getCredentials(effectiveTenantId),
+        getX3CredentialsSummary(effectiveTenantId),
+      ])
+    : [null, null];
 
   const isPlatformAdmin = ['platform_super_admin', 'mysoft_support_admin'].includes(profile.role);
   const planFeatures = (!isPlatformAdmin && profile.tenant_id)
@@ -70,6 +77,40 @@ export default async function IntegrationsPage() {
         <div style={{ padding: 20 }}>
           {effectiveTenantId ? (
             <IntacctConfigForm existing={existing} />
+          ) : (
+            <p style={{ fontSize: 13, color: 'var(--muted)' }}>
+              No tenant associated with your account.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Sage X3 */}
+      <div style={{ ...panelStyle, marginTop: 16 }}>
+        <div style={panelHeadStyle}>
+          <div>
+            <span style={panelTitleStyle}>Sage X3 Connection</span>
+            <p style={{ fontSize: 12, color: 'var(--muted)', margin: '2px 0 0' }}>
+              Credentials are encrypted at rest using AES-256-GCM.
+            </p>
+          </div>
+          {existingX3 && (
+            <span style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: 'var(--green)',
+              background: '#E6F7ED',
+              border: '1px solid #A3D9B1',
+              borderRadius: 4,
+              padding: '3px 8px',
+            }}>
+              Configured
+            </span>
+          )}
+        </div>
+        <div style={{ padding: 20 }}>
+          {effectiveTenantId ? (
+            <X3ConfigForm existing={existingX3} />
           ) : (
             <p style={{ fontSize: 13, color: 'var(--muted)' }}>
               No tenant associated with your account.
